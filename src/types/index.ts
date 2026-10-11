@@ -1,31 +1,100 @@
-// src/types/index.ts
-export type Duration = '1h' | '1d' | '1w' | '1m';
-
-export interface Voucher {
+// ===== WANACHAMA =====
+export interface Member {
   id: string;
-  code: string;
-  duration: Duration;
-  dataLimit: string;
-  isUsed: boolean;
-  usedAt: string | null;
-  expiresAt: string | null;
-  createdAt: string;
-  printed: boolean;
+  fullName: string;
+  phone: string;
+  email?: string;
+  gender: 'me' | 'ke';
+  ageGroup: 'watoto' | 'vijana' | 'wazee';
+  ministry: string;
+  role?: string;
+  address?: string;
+  baptized: boolean;
+  joinedAt: string;
+  photo?: string;
 }
 
-export interface VoucherFormData {
-  quantity: number;
-  duration: Duration;
-  dataLimit: string;
-  prefix: string;
+// ===== SMS =====
+export interface SMSMessage {
+  id: string;
+  recipients: string[]; // member IDs
+  message: string;
+  sentAt: string;
+  status: 'pending' | 'sent' | 'failed';
+  group?: string;
 }
 
-// Hizi ni VALUES (sio types) — zinatumika kama kawaida
-export const DURATION_LABELS: Record<Duration, string> = {
-  '1h': 'Saa 1',
-  '1d': 'Siku 1',
-  '1w': 'Wiki 1',
-  '1m': 'Mwezi 1',
-};
+// ===== GALLERY =====
+export interface GalleryItem {
+  id: string;
+  title: string;
+  imageUrl: string;
+  album: string;
+  uploadedAt: string;
+}
 
-export const DATA_LIMITS = ['500MB', '1GB', '2GB', '5GB', 'Unlimited'];
+// ===== BOOKS =====
+export interface Book {
+  id: string;
+  title: string;
+  author: string;
+  description: string;
+  coverUrl: string;
+  fileUrl: string;
+  category: string;
+  uploadedAt: string;
+}
+
+// ===== CHAT =====
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  message: string;
+  timestamp: string;
+  room: string;
+}
+
+// ===== LEADERSHIP =====
+export interface Leader {
+  id: string;
+  name: string;
+  position: string;
+  photo: string;
+  phone: string;
+  email?: string;
+  bio?: string;
+}
+
+// ===== NEWS =====
+export interface NewsItem {
+  id: string;
+  title: string;
+  content: string;
+  imageUrl?: string;
+  author: string;
+  publishedAt: string;
+  category: 'tangazo' | 'tukio' | 'habari';
+}
+
+// ===== CALENDAR =====
+export interface ChurchEvent {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  time: string;
+  location: string;
+  category: 'ibada' | 'mkutano' | 'sherehe' | 'kikao';
+}
+
+// ===== MINISTRIES =====
+export interface Ministry {
+  id: string;
+  name: string;
+  description: string;
+  leader: string;
+  memberCount: number;
+  meetingDay: string;
+  icon: string;
+}
