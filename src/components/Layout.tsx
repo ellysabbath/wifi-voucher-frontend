@@ -1,19 +1,22 @@
+// src/components/Layout.tsx
 import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 
 const routeTitles: Record<string, string> = {
-  '/': 'Dashboard',
-  '/members': 'Wanachama',
-  '/sms': 'Tuma SMS',
-  '/gallery': 'Picha',
-  '/books': 'Vitabu',
-  '/chat': 'Mazungumzo',
-  '/leadership': 'Uongozi',
-  '/news': 'Habari',
-  '/calendar': 'Kalenda',
-  '/ministries': 'Huduma',
+  '/dashboard': 'Dashboard',
+  '/members': 'Members',
+  '/sms': 'Bulk SMS',
+  '/gallery': 'Gallery',
+  '/books': 'Books',
+  '/chat': 'Chat',
+  '/leadership': 'Leadership',
+  '/news': 'News',
+  '/calendar': 'Calendar',
+  '/ministries': 'Ministries',
+  '/profile': 'Profile',
+  '/settings': 'Settings',
 };
 
 export default function Layout() {
@@ -38,7 +41,7 @@ export default function Layout() {
           title={title}
         />
 
-        {/* Page content - inascroll yenyewe */}
+        {/* Page content — scrolls independently */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-8 custom-scrollbar">
           <Outlet />
         </main>

@@ -1,0 +1,3617 @@
+import { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  User, Mail, Lock, Eye, EyeOff, Phone, UserPlus,
+  Camera, Upload, X, RefreshCw, CheckCircle2
+} from 'lucide-react';
+import AuthLayout from './AuthLayout';
+
+export default function Register() {
+  const navigate = useNavigate();
+  const [showPassword, setShowPassword] = useState(false);
+  const [photo, setPhoto] = useState<string>('');
+  const [photoMode, setPhotoMode] = useState<'upload' | 'webcam' | null>(null);
+  const [isCameraOn, setIsCameraOn] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const [form, setForm] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+  });
+  const [error, setError] = useState('');
+
+  // ===== WEBCAM =====
+  const startCamera = async () => {
+    setCameraError('');
+    setPhotoMode('webcam');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480, facingMode: 'user' },
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+      setIsCameraOn(true);
+    } catch (err) {
+      setCameraError('Imeshindwa kufungua kamera. Hakikisha umeruhusu kutumia kamera.');
+      setIsCameraOn(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraOn(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        setPhoto(dataUrl);
+        stopCamera();
+        setPhotoMode(null);
+      }
+    }
+  };
+
+  const retakePhoto = () => {
+    setPhoto('');
+    startCamera();
+  };
+
+  // ===== UPLOAD =====
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Tafadhali chagua faili la picha');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Picha isizidi 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPhoto(reader.result as string);
+      setPhotoMode(null);
+      setError('');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // ===== CLEANUP =====
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
+  // ===== SUBMIT =====
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!form.fullName || !form.email || !form.phone || !form.password) {
+      setError('Jaza sehemu zote');
+      return;
+    }
+    if (form.password.length < 6) {
+      setError('Nenosiri liwe na herufi 6 au zaidi');
+      return;
+    }
+    if (form.password !== form.confirmPassword) {
+      setError('Nenosiri hazifanani');
+      return;
+    }
+
+    // Hapa unaweza kutuma `photo` (base64) kwenye API yako
+    console.log('Photo:', photo);
+
+    navigate('/verify-account', { state: { email: form.email } });
+  };
+
+  return (
+    <AuthLayout title="Jisajili" subtitle="Unda akaunti yako ya mfumo wa kanisa">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* ===== PHOTO SECTION ===== */}
+        <div className="flex flex-col items-center">
+          <div className="relative">
+            {photo ? (
+              <div className="relative">
+                <img
+                  src={photo}
+                  alt="Profile"
+                  className="w-28 h-28 rounded-full object-cover border-4 border-primary shadow-lg"
+                />
+                <button
+                  type="button"
+                  onClick={() => setPhoto('')}
+                  className="absolute -top-1 -right-1 bg-red-500 text-white p-1.5 rounded-full shadow-lg hover:bg-red-600 transition"
+                  aria-label="Ondoa picha"
+                >
+                  <X size={14} />
+                </button>
+                <div className="absolute -bottom-1 -right-1 bg-green-500 text-white p-1.5 rounded-full shadow-lg">
+                  <CheckCircle2 size={14} />
+                </div>
+              </div>
+            ) : (
+              <div className="w-28 h-28 rounded-full bg-gray-100 border-4 border-dashed border-gray-300 flex items-center justify-center text-gray-400">
+                <User size={40} />
+              </div>
+            )}
+          </div>
+
+          {/* Buttons za kupakia/kuchukua picha */}
+          {!photo && (
+            <div className="flex gap-2 mt-3">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-2 rounded-lg transition"
+              >
+                <Upload size={14} /> Pakia Picha
+              </button>
+              <button
+                type="button"
+                onClick={startCamera}
+                className="flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-2 rounded-lg transition"
+              >
+                <Camera size={14} /> Chukua Picha
+              </button>
+            </div>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+        </div>
+
+        {/* ===== WEBCAM MODAL ===== */}
+        {photoMode === 'webcam' && (
+          <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="font-bold text-gray-800">Chukua Picha</h3>
+                <button
+                  type="button"
+                  onClick={() => { stopCamera(); setPhotoMode(null); }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-4">
+                {cameraError ? (
+                  <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-4 text-center">
+                    {cameraError}
+                  </div>
+                ) : (
+                  <div className="relative bg-black rounded-xl overflow-hidden aspect-video">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover"
+                    />
+                    {/* Guide circle */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-48 h-48 rounded-full border-4 border-white/50 border-dashed"></div>
+                    </div>
+                  </div>
+                )}
+
+                <canvas ref={canvasRef} className="hidden" />
+
+                <div className="flex gap-3 justify-center mt-4">
+                  {cameraError ? (
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      className="bg-primary text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-primary-dark transition flex items-center gap-2"
+                    >
+                      <RefreshCw size={16} /> Jaribu Tena
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={capturePhoto}
+                      disabled={!isCameraOn}
+                      className="bg-primary text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-primary-dark transition flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <Camera size={16} /> Chukua Picha
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ===== FORM FIELDS ===== */}
+        <div>
+          <label className="block text-sm font-semibold mb-1">Jina Kamili</label>
+          <div className="relative">
+            <User size={18} className="absolute left-3 top-3.5 text-gray-400" />
+            <input
+              value={form.fullName}
+              onChange={e => setForm({ ...form, fullName: e.target.value })}
+              placeholder="Jina lako kamili"
+              className="w-full border rounded-lg pl-10 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-1">Barua Pepe</label>
+          <div className="relative">
+            <Mail size={18} className="absolute left-3 top-3.5 text-gray-400" />
+            <input
+              type="email"
+              value={form.email}
+              onChange={e => setForm({ ...form, email: e.target.value })}
+              placeholder="jina@bahisda.org"
+              className="w-full border rounded-lg pl-10 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-1">Namba ya Simu</label>
+          <div className="relative">
+            <Phone size={18} className="absolute left-3 top-3.5 text-gray-400" />
+            <input
+              value={form.phone}
+              onChange={e => setForm({ ...form, phone: e.target.value })}
+              placeholder="+255712345678"
+              className="w-full border rounded-lg pl-10 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-1">Nenosiri</label>
+          <div className="relative">
+            <Lock size={18} className="absolute left-3 top-3.5 text-gray-400" />
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={form.password}
+              onChange={e => setForm({ ...form, password: e.target.value })}
+              placeholder="••••••••"
+              className="w-full border rounded-lg pl-10 pr-10 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-1">Rudia Nenosiri</label>
+          <div className="relative">
+            <Lock size={18} className="absolute left-3 top-3.5 text-gray-400" />
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={form.confirmPassword}
+              onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
+              placeholder="••••••••"
+              className="w-full border rounded-lg pl-10 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark transition flex items-center justify-center gap-2"
+        >
+          <UserPlus size={18} /> Jisajili
+        </button>
+
+        <p className="text-center text-sm text-gray-600">
+          Una akaunti tayari?{' '}
+          <Link to="/login" className="text-primary font-semibold hover:underline">
+            Ingia
+          </Link>
+        </p>
+      </form>
+    </AuthLayout>
+  );
+}
+
+
+
+
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Mail, CheckCircle2 } from 'lucide-react';
+import AuthLayout from './AuthLayout';
+
+export default function VerifyAccount() {
+  const navigate = useNavigate();
+  const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [error, setError] = useState('');
+
+  const handleChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return;
+    const newCode = [...code];
+    newCode[index] = value.slice(-1);
+    setCode(newCode);
+
+    // Auto-focus next input
+    if (value && index < 5) {
+      const next = document.getElementById(`code-${index + 1}`);
+      next?.focus();
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !code[index] && index > 0) {
+      const prev = document.getElementById(`code-${index - 1}`);
+      prev?.focus();
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    const fullCode = code.join('');
+    if (fullCode.length !== 6) {
+      setError('Ingiza msimbo kamili wa tarakimu 6');
+      return;
+    }
+    // Mock verification - badilisha na API halisi
+    navigate('/login');
+  };
+
+  const handleResend = () => {
+    alert('Msimbo mpya umetumwa kwenye barua pepe yako');
+  };
+
+  return (
+    <AuthLayout
+      title="Thibitisha Akaunti"
+      subtitle="Tumekutumia msimbo wa tarakimu 6 kwenye barua pepe yako"
+    >
+      <div className="flex justify-center mb-6">
+        <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+          <Mail size={36} />
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label className="block text-sm font-semibold mb-3 text-center">
+            Ingiza msimbo
+          </label>
+          <div className="flex justify-center gap-2">
+            {code.map((digit, i) => (
+              <input
+                key={i}
+                id={`code-${i}`}
+                type="text"
+                inputMode="numeric"
+                value={digit}
+                onChange={e => handleChange(i, e.target.value)}
+                onKeyDown={e => handleKeyDown(i, e)}
+                maxLength={1}
+                className="w-12 h-14 text-center text-2xl font-bold border-2 rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            ))}
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 text-center">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark transition flex items-center justify-center gap-2"
+        >
+          <CheckCircle2 size={18} /> Thibitisha
+        </button>
+
+        <div className="text-center text-sm text-gray-600">
+          Hukupata msimbo?{' '}
+          <button
+            type="button"
+            onClick={handleResend}
+            className="text-primary font-semibold hover:underline"
+          >
+            Tuma tena
+          </button>
+        </div>
+      </form>
+    </AuthLayout>
+  );
+}
+
+
+
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, ArrowLeft, Send } from 'lucide-react';
+import AuthLayout from './AuthLayout';
+
+export default function ForgotPassword() {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!email) {
+      setError('Ingiza barua pepe yako');
+      return;
+    }
+
+    // Mock - nenda kwenye ukurasa wa code
+    navigate('/forgot-password-code', { state: { email } });
+  };
+
+  return (
+    <AuthLayout
+      title="Umesahau Nenosiri?"
+      subtitle="Ingiza barua pepe yako ili tukuTumie msimbo wa kubadilisha nenosiri"
+    >
+      <div className="flex justify-center mb-6">
+        <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+          <Mail size={36} />
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-semibold mb-1">Barua Pepe</label>
+          <div className="relative">
+            <Mail size={18} className="absolute left-3 top-3.5 text-gray-400" />
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="jina@bahisda.org"
+              className="w-full border rounded-lg pl-10 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark transition flex items-center justify-center gap-2"
+        >
+          <Send size={18} /> Tuma Msimbo
+        </button>
+
+        <Link
+          to="/login"
+          className="w-full flex items-center justify-center gap-2 text-gray-600 text-sm hover:text-primary"
+        >
+          <ArrowLeft size={16} /> Rudi kwenye kuingia
+        </Link>
+      </form>
+    </AuthLayout>
+  );
+}
+
+
+import { useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { ShieldCheck, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import AuthLayout from './AuthLayout';
+
+export default function ForgotPasswordCode() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const email = (location.state as any)?.email || 'barua pepe yako';
+
+  const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [error, setError] = useState('');
+
+  const handleChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return;
+    const newCode = [...code];
+    newCode[index] = value.slice(-1);
+    setCode(newCode);
+
+    if (value && index < 5) {
+      document.getElementById(`fp-code-${index + 1}`)?.focus();
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !code[index] && index > 0) {
+      document.getElementById(`fp-code-${index - 1}`)?.focus();
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    const fullCode = code.join('');
+    if (fullCode.length !== 6) {
+      setError('Ingiza msimbo kamili wa tarakimu 6');
+      return;
+    }
+    navigate('/reset-password', { state: { email, code: fullCode } });
+  };
+
+  const handleResend = () => {
+    alert('Msimbo mpya umetumwa kwenye barua pepe yako');
+  };
+
+  return (
+    <AuthLayout
+      title="Ingiza Msimbo"
+      subtitle={`Tumekutumia msimbo wa tarakimu 6 kwenye ${email}`}
+    >
+      <div className="flex justify-center mb-6">
+        <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+          <ShieldCheck size={36} />
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label className="block text-sm font-semibold mb-3 text-center">
+            Msimbo wa uthibitisho
+          </label>
+          <div className="flex justify-center gap-2">
+            {code.map((digit, i) => (
+              <input
+                key={i}
+                id={`fp-code-${i}`}
+                type="text"
+                inputMode="numeric"
+                value={digit}
+                onChange={e => handleChange(i, e.target.value)}
+                onKeyDown={e => handleKeyDown(i, e)}
+                maxLength={1}
+                className="w-12 h-14 text-center text-2xl font-bold border-2 rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            ))}
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 text-center">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark transition flex items-center justify-center gap-2"
+        >
+          <CheckCircle2 size={18} /> Thibitisha Msimbo
+        </button>
+
+        <div className="flex items-center justify-between text-sm">
+          <Link to="/forgot-password" className="flex items-center gap-1 text-gray-600 hover:text-primary">
+            <ArrowLeft size={16} /> Rudi
+          </Link>
+          <button
+            type="button"
+            onClick={handleResend}
+            className="text-primary font-semibold hover:underline"
+          >
+            Tuma tena msimbo
+          </button>
+        </div>
+      </form>
+    </AuthLayout>
+  );
+}
+
+
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Lock, Eye, EyeOff, KeyRound } from 'lucide-react';
+import AuthLayout from './AuthLayout';
+
+export default function ResetPassword() {
+  const navigate = useNavigate();
+  const [showPassword, setShowPassword] = useState(false);
+  const [form, setForm] = useState({ password: '', confirmPassword: '' });
+  const [error, setError] = useState('');
+
+  // Password strength
+  const getStrength = (pwd: string) => {
+    let score = 0;
+    if (pwd.length >= 6) score++;
+    if (pwd.length >= 10) score++;
+    if (/[A-Z]/.test(pwd)) score++;
+    if (/[0-9]/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+    return score;
+  };
+
+  const strength = getStrength(form.password);
+  const strengthLabels = ['Dhaifu sana', 'Dhaifu', 'Wastani', 'Nzuri', 'Nzuri sana', 'Imara'];
+  const strengthColors = ['bg-red-500', 'bg-red-400', 'bg-yellow-500', 'bg-blue-500', 'bg-green-500', 'bg-green-600'];
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (form.password.length < 6) {
+      setError('Nenosiri liwe na herufi 6 au zaidi');
+      return;
+    }
+    if (form.password !== form.confirmPassword) {
+      setError('Nenosiri hazifanani');
+      return;
+    }
+
+    navigate('/password-reset-success');
+  };
+
+  return (
+    <AuthLayout
+      title="Weka Nenosiri Jipya"
+      subtitle="Chagua nenosiri imara kwa akaunti yako"
+    >
+      <div className="flex justify-center mb-6">
+        <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+          <KeyRound size={36} />
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-semibold mb-1">Nenosiri Jipya</label>
+          <div className="relative">
+            <Lock size={18} className="absolute left-3 top-3.5 text-gray-400" />
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={form.password}
+              onChange={e => setForm({ ...form, password: e.target.value })}
+              placeholder="••••••••"
+              className="w-full border rounded-lg pl-10 pr-10 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+
+          {/* Strength indicator */}
+          {form.password && (
+            <div className="mt-2">
+              <div className="flex gap-1 mb-1">
+                {[0, 1, 2, 3, 4].map(i => (
+                  <div
+                    key={i}
+                    className={`h-1 flex-1 rounded-full ${
+                      i < strength ? strengthColors[strength] : 'bg-gray-200'
+                    }`}
+                  ></div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500">
+                Nguvu: <span className="font-semibold">{strengthLabels[strength]}</span>
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-1">Rudia Nenosiri</label>
+          <div className="relative">
+            <Lock size={18} className="absolute left-3 top-3.5 text-gray-400" />
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={form.confirmPassword}
+              onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
+              placeholder="••••••••"
+              className="w-full border rounded-lg pl-10 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark transition flex items-center justify-center gap-2"
+        >
+          <KeyRound size={18} /> Badilisha Nenosiri
+        </button>
+      </form>
+    </AuthLayout>
+  );
+}
+
+
+
+import { Link } from 'react-router-dom';
+import { CheckCircle2, ArrowRight } from 'lucide-react';
+import AuthLayout from './AuthLayout';
+
+export default function PasswordResetSuccess() {
+  return (
+    <AuthLayout title="Imefanikiwa!" subtitle="Nenosiri lako limebadilishwa kikamilifu">
+      <div className="text-center">
+        {/* Success icon */}
+        <div className="flex justify-center mb-6">
+          <div className="relative">
+            <div className="w-24 h-24 rounded-full bg-green-100 flex items-center justify-center animate-pulse">
+              <div className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center text-white">
+                <CheckCircle2 size={44} strokeWidth={2.5} />
+              </div>
+            </div>
+            {/* Decorative rings */}
+            <div className="absolute inset-0 rounded-full border-4 border-green-200 animate-ping opacity-20"></div>
+          </div>
+        </div>
+
+        <h3 className="text-2xl font-bold text-gray-800 mb-2">
+          Hongera!
+        </h3>
+        <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+          Nenosiri lako limebadilishwa kikamilifu. Sasa unaweza kuingia kwenye akaunti yako kwa nenosiri jipya.
+        </p>
+
+        {/* Info box */}
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 text-left">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 size={20} className="text-green-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-green-800 text-sm">Usalama wa akaunti</p>
+              <p className="text-green-700 text-xs mt-1">
+                Kwa usalama wako, tumekutumia barua pepe ya uthibitisho. Kama hukufanya mabadiliko haya, wasiliana nasi mara moja.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <Link
+          to="/login"
+          className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark transition flex items-center justify-center gap-2"
+        >
+          Ingia kwenye Akaunti <ArrowRight size={18} />
+        </Link>
+      </div>
+    </AuthLayout>
+  );
+}
+
+
+import  { type ReactNode } from 'react';
+import { Church } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+interface AuthLayoutProps {
+  children: ReactNode;
+  title: string;
+  subtitle?: string;
+}
+
+export default function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
+  return (
+    <div className="h-screen flex flex-col lg:flex-row overflow-hidden">
+      {/* Left side - branding (haiscroll) */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-blue-700 to-indigo-800 text-white p-12 flex-col justify-between relative overflow-hidden flex-shrink-0">
+        {/* Decorative circles */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full -mr-48 -mt-48"></div>
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-white/10 rounded-full -ml-40 -mb-40"></div>
+
+        <div className="relative z-10">
+          <Link to="/" className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
+              <Church size={24} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold">Bahi SDA</h1>
+              <p className="text-xs text-blue-100">Mfumo wa Kanisa</p>
+            </div>
+          </Link>
+        </div>
+
+        <div className="relative z-10">
+          <h2 className="text-4xl font-bold mb-4 leading-tight">
+            Karibu kwenye mfumo wa usimamizi wa kanisa
+          </h2>
+          <p className="text-blue-100 text-lg max-w-md">
+            Simamia wanachama, tuma SMS, na fuatilia matukio yote ya kanisa mahali pamoja.
+          </p>
+        </div>
+
+        <div className="relative z-10 text-sm text-blue-100">
+          © 2026 Bahi SDA Church. Haki zote zimehifadhiwa.
+        </div>
+      </div>
+
+      {/* Right side - form (inascroll yenyewe) */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50">
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className="min-h-full flex items-start lg:items-center justify-center p-6 lg:p-12">
+            <div className="w-full max-w-md py-6">
+              {/* Mobile logo */}
+              <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
+                <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-white">
+                  <Church size={24} />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-primary">Bahi SDA</h1>
+                  <p className="text-xs text-gray-500">Mfumo wa Kanisa</p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-lg p-6 lg:p-8">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
+                  {subtitle && <p className="text-gray-500 text-sm mt-1">{subtitle}</p>}
+                </div>
+                {children}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+import { useState } from 'react';
+import { useMemberStore } from '../store/memberStore';
+import { useSMSStore } from '../store/smsStore';
+import { Send, Users, User, Plus, Trash2 } from 'lucide-react';
+import Modal from '../components/Modal';
+
+export default function BulkSMS() {
+  const members = useMemberStore(s => s.members);
+  const sendSMS = useSMSStore(s => s.sendSMS);
+  const messages = useSMSStore(s => s.messages);
+  const groups = useSMSStore(s => s.groups);
+  const addGroup = useSMSStore(s => s.addGroup);
+  const deleteGroup = useSMSStore(s => s.deleteGroup);
+
+  const [message, setMessage] = useState('');
+  const [mode, setMode] = useState<'all' | 'group' | 'select'>('all');
+  const [group, setGroup] = useState('');
+  const [selected, setSelected] = useState<string[]>([]);
+  const [success, setSuccess] = useState('');
+
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupMembers, setNewGroupMembers] = useState<string[]>([]);
+
+  const ministries = [...new Set(members.map(m => m.ministry))];
+
+  const getRecipients = () => {
+    if (mode === 'all') return members.map(m => m.id);
+    if (mode === 'group') {
+      if (groups[group]) return groups[group];
+      return members.filter(m => m.ministry === group).map(m => m.id);
+    }
+    return selected;
+  };
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    const recipients = getRecipients();
+    if (recipients.length === 0) return alert('Chagua wapokeaji');
+    sendSMS(recipients, message, mode === 'group' ? group : mode === 'all' ? 'Wote' : 'Wateule');
+    setSuccess(`SMS imetumwa kwa wanachama ${recipients.length}!`);
+    setMessage('');
+    setSelected([]);
+    setTimeout(() => setSuccess(''), 3000);
+  };
+
+  const handleCreateGroup = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newGroupName.trim() || newGroupMembers.length === 0) return;
+    addGroup(newGroupName, newGroupMembers);
+    setNewGroupName('');
+    setNewGroupMembers([]);
+    setIsGroupModalOpen(false);
+  };
+
+  const handleCloseGroupModal = () => {
+    setNewGroupName('');
+    setNewGroupMembers([]);
+    setIsGroupModalOpen(false);
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Tuma SMS</h1>
+        <button onClick={() => setIsGroupModalOpen(true)}
+          className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2">
+          <Plus size={18} /> Unda Group
+        </button>
+      </div>
+
+      <Modal isOpen={isGroupModalOpen} onClose={handleCloseGroupModal} title="Unda Group Mpya">
+        <form onSubmit={handleCreateGroup} className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold mb-1">Jina la Group *</label>
+            <input required value={newGroupName}
+              onChange={e => setNewGroupName(e.target.value)}
+              placeholder="Mfano: Viongozi, Kwaya..."
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-1">
+              Chagua Wanachama ({newGroupMembers.length} wamechaguliwa) *
+            </label>
+            <div className="max-h-60 overflow-y-auto border rounded-lg p-2">
+              {members.map(m => (
+                <label key={m.id} className="flex items-center gap-2 p-2 hover:bg-gray-50">
+                  <input type="checkbox"
+                    checked={newGroupMembers.includes(m.id)}
+                    onChange={e => setNewGroupMembers(prev =>
+                      e.target.checked ? [...prev, m.id] : prev.filter(i => i !== m.id)
+                    )} />
+                  <span>{m.fullName} - {m.phone}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-3 justify-end pt-4 border-t">
+            <button type="button" onClick={handleCloseGroupModal}
+              className="bg-gray-200 px-6 py-2 rounded-lg hover:bg-gray-300">
+              Ghairi
+            </button>
+            <button type="submit"
+              disabled={!newGroupName.trim() || newGroupMembers.length === 0}
+              className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary-dark disabled:opacity-50">
+              Unda Group
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <form onSubmit={handleSend} className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="mb-4">
+          <label className="block text-sm font-semibold mb-2">Wapokeaji</label>
+          <div className="flex gap-2 mb-3 flex-wrap">
+            <button type="button" onClick={() => setMode('all')}
+              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${mode === 'all' ? 'bg-primary text-white' : 'bg-gray-200'}`}>
+              <Users size={16} /> Wote
+            </button>
+            <button type="button" onClick={() => setMode('group')}
+              className={`px-4 py-2 rounded-lg ${mode === 'group' ? 'bg-primary text-white' : 'bg-gray-200'}`}>
+              Kwa Group
+            </button>
+            <button type="button" onClick={() => setMode('select')}
+              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${mode === 'select' ? 'bg-primary text-white' : 'bg-gray-200'}`}>
+              <User size={16} /> Chagua
+            </button>
+          </div>
+
+          {mode === 'group' && (
+            <div className="space-y-2">
+              <select value={group} onChange={e => setGroup(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2">
+                <option value="">-- Chagua Group --</option>
+                <optgroup label="Groups Zilizoundwa">
+                  {Object.keys(groups).map(g => (
+                    <option key={g} value={g}>{g} ({groups[g].length})</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Huduma">
+                  {ministries.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </optgroup>
+              </select>
+
+              {groups[group] && (
+                <button type="button" onClick={() => deleteGroup(group)}
+                  className="text-red-500 text-sm flex items-center gap-1">
+                  <Trash2 size={14} /> Futa group hii
+                </button>
+              )}
+            </div>
+          )}
+
+          {mode === 'select' && (
+            <div className="max-h-60 overflow-y-auto border rounded-lg p-2">
+              {members.map(m => (
+                <label key={m.id} className="flex items-center gap-2 p-2 hover:bg-gray-50">
+                  <input type="checkbox" checked={selected.includes(m.id)}
+                    onChange={e => setSelected(prev =>
+                      e.target.checked ? [...prev, m.id] : prev.filter(i => i !== m.id)
+                    )} />
+                  <span>{m.fullName} - {m.phone}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-semibold mb-2">Ujumbe</label>
+          <textarea required value={message}
+            onChange={e => setMessage(e.target.value)} rows={4}
+            className="w-full border rounded-lg px-3 py-2"
+            placeholder="Andika ujumbe wako hapa..." />
+          <p className="text-sm text-gray-500 mt-1">{message.length} herufi</p>
+        </div>
+
+        <button type="submit"
+          className="bg-primary text-white px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-primary-dark">
+          <Send size={18} /> Tuma SMS
+        </button>
+
+        {success && <p className="mt-4 text-green-600 font-semibold">{success}</p>}
+      </form>
+
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-xl font-bold mb-4">Historia ya SMS</h2>
+        <div className="space-y-3">
+          {messages.map(m => (
+            <div key={m.id} className="border-l-4 border-primary pl-3 py-2">
+              <p className="text-sm text-gray-500">
+                {new Date(m.sentAt).toLocaleString()} - Kwa: {m.group || `${m.recipients.length} wateule`}
+              </p>
+              <p>{m.message}</p>
+              <span className="text-xs text-green-600">{m.status}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+import { useState } from 'react';
+import { useGalleryStore } from '../store/galleryStore';
+import { Plus, Trash2 } from 'lucide-react';
+import Modal from '../components/Modal';
+
+export default function Gallery() {
+  const items = useGalleryStore(s => s.items);
+  const addItem = useGalleryStore(s => s.addItem);
+  const deleteItem = useGalleryStore(s => s.deleteItem);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [form, setForm] = useState({ title: '', imageUrl: '', album: 'Ibada' });
+
+  const albums = ['Zote', ...new Set(items.map(i => i.album))];
+  const [filter, setFilter] = useState('Zote');
+  const filtered = filter === 'Zote' ? items : items.filter(i => i.album === filter);
+
+  const resetForm = () => setForm({ title: '', imageUrl: '', album: 'Ibada' });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    addItem(form);
+    resetForm();
+    setIsModalOpen(false);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    setIsModalOpen(false);
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Picha za Kanisa</h1>
+        <button onClick={() => setIsModalOpen(true)}
+          className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2">
+          <Plus size={18} /> Ongeza Picha
+        </button>
+      </div>
+
+      <Modal isOpen={isModalOpen} onClose={handleClose} title="Ongeza Picha Mpya">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold mb-1">Kichwa cha Picha *</label>
+            <input required value={form.title}
+              onChange={e => setForm({ ...form, title: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">URL ya Picha *</label>
+            <input required value={form.imageUrl}
+              onChange={e => setForm({ ...form, imageUrl: e.target.value })}
+              placeholder="https://..."
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Albamu</label>
+            <input value={form.album}
+              onChange={e => setForm({ ...form, album: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div className="flex gap-3 justify-end pt-4 border-t">
+            <button type="button" onClick={handleClose}
+              className="bg-gray-200 px-6 py-2 rounded-lg hover:bg-gray-300">
+              Ghairi
+            </button>
+            <button type="submit"
+              className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary-dark">
+              Hifadhi
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {albums.map(a => (
+          <button key={a} onClick={() => setFilter(a)}
+            className={`px-4 py-2 rounded-lg text-sm ${filter === a ? 'bg-primary text-white' : 'bg-white'}`}>
+            {a}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {filtered.map(item => (
+          <div key={item.id} className="bg-white rounded-lg shadow overflow-hidden group">
+            <div className="relative">
+              <img src={item.imageUrl} alt={item.title} className="w-full h-48 object-cover" />
+              <button onClick={() => deleteItem(item.id)}
+                className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded opacity-0 group-hover:opacity-100 transition">
+                <Trash2 size={14} />
+              </button>
+            </div>
+            <div className="p-3">
+              <p className="font-semibold">{item.title}</p>
+              <p className="text-xs text-gray-500">{item.album}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+import { useState } from 'react';
+import { useBookStore } from '../store/bookStore';
+import { Plus, Trash2, Download } from 'lucide-react';
+import Modal from '../components/Modal';
+
+export default function Books() {
+  const books = useBookStore(s => s.books);
+  const addBook = useBookStore(s => s.addBook);
+  const deleteBook = useBookStore(s => s.deleteBook);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [form, setForm] = useState({
+    title: '', author: '', description: '', coverUrl: '', fileUrl: '#', category: 'Imani'
+  });
+
+  const resetForm = () => setForm({
+    title: '', author: '', description: '', coverUrl: '', fileUrl: '#', category: 'Imani'
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    addBook(form);
+    resetForm();
+    setIsModalOpen(false);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    setIsModalOpen(false);
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Vitabu</h1>
+        <button onClick={() => setIsModalOpen(true)}
+          className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2">
+          <Plus size={18} /> Ongeza Kitabu
+        </button>
+      </div>
+
+      <Modal isOpen={isModalOpen} onClose={handleClose} title="Ongeza Kitabu Kipya">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold mb-1">Jina la Kitabu *</label>
+            <input required value={form.title}
+              onChange={e => setForm({ ...form, title: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Mwandishi *</label>
+            <input required value={form.author}
+              onChange={e => setForm({ ...form, author: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Kategoria</label>
+            <input value={form.category}
+              onChange={e => setForm({ ...form, category: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">URL ya Cover</label>
+            <input value={form.coverUrl}
+              onChange={e => setForm({ ...form, coverUrl: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">URL ya Faili</label>
+            <input value={form.fileUrl}
+              onChange={e => setForm({ ...form, fileUrl: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold mb-1">Maelezo</label>
+            <textarea value={form.description} rows={3}
+              onChange={e => setForm({ ...form, description: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div className="md:col-span-2 flex gap-3 justify-end pt-4 border-t">
+            <button type="button" onClick={handleClose}
+              className="bg-gray-200 px-6 py-2 rounded-lg hover:bg-gray-300">
+              Ghairi
+            </button>
+            <button type="submit"
+              className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary-dark">
+              Hifadhi
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {books.map(b => (
+          <div key={b.id} className="bg-white rounded-lg shadow p-4 flex gap-4">
+            <img src={b.coverUrl} alt={b.title} className="w-24 h-32 object-cover rounded" />
+            <div className="flex-1">
+              <h3 className="font-bold">{b.title}</h3>
+              <p className="text-sm text-gray-500">{b.author}</p>
+              <p className="text-xs text-gray-400 mt-1">{b.category}</p>
+              <p className="text-sm mt-2 line-clamp-2">{b.description}</p>
+              <div className="flex gap-2 mt-3">
+                <a href={b.fileUrl} className="text-primary text-sm flex items-center gap-1">
+                  <Download size={14} /> Pakua
+                </a>
+                <button onClick={() => deleteBook(b.id)} className="text-red-500 text-sm">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
+import AuthLayout from './AuthLayout';
+
+export default function Login() {
+  const navigate = useNavigate();
+  const [showPassword, setShowPassword] = useState(false);
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!form.email || !form.password) {
+      setError('Jaza barua pepe na nenosiri');
+      return;
+    }
+
+    // Mock login - badilisha na API halisi
+    if (form.password.length < 6) {
+      setError('Nenosiri si sahihi');
+      return;
+    }
+
+    // Karibu kwenye dashboard
+    navigate('/dashboard');
+  };
+
+  return (
+    <AuthLayout title="Ingia" subtitle="Karibu tena! Ingia kwenye akaunti yako">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-semibold mb-1">Barua Pepe</label>
+          <div className="relative">
+            <Mail size={18} className="absolute left-3 top-3.5 text-gray-400" />
+            <input
+              type="email"
+              value={form.email}
+              onChange={e => setForm({ ...form, email: e.target.value })}
+              placeholder="jina@bahisda.org"
+              className="w-full border rounded-lg pl-10 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-1">Nenosiri</label>
+          <div className="relative">
+            <Lock size={18} className="absolute left-3 top-3.5 text-gray-400" />
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={form.password}
+              onChange={e => setForm({ ...form, password: e.target.value })}
+              placeholder="••••••••"
+              className="w-full border rounded-lg pl-10 pr-10 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between text-sm">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" className="rounded" />
+            <span className="text-gray-600">Nikumbuke</span>
+          </label>
+          <Link to="/forgot-password" className="text-primary font-semibold hover:underline">
+            Umesahau nenosiri?
+          </Link>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark transition flex items-center justify-center gap-2"
+        >
+          <LogIn size={18} /> Ingia
+        </button>
+
+        <p className="text-center text-sm text-gray-600">
+          Hauna akaunti?{' '}
+          <Link to="/register" className="text-primary font-semibold hover:underline">
+            Jisajili
+          </Link>
+        </p>
+      </form>
+    </AuthLayout>
+  );
+}
+
+
+
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useMemberStore } from '../store/memberStore';
+
+export default function AddMember() {
+  const addMember = useMemberStore(s => s.addMember);
+  const navigate = useNavigate();
+  const [form, setForm] = useState({
+    fullName: '',
+    phone: '',
+    gender: 'me' as const,
+    ageGroup: 'vijana' as const,
+    ministry: 'Vijana',
+    baptized: false,
+    address: '',
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    addMember(form);
+    navigate('/members');
+  };
+
+  return (
+    <div>
+      <h1 className="text-3xl font-bold mb-6">Ongeza Mwanachama Mpya</h1>
+
+      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="md:col-span-2">
+          <label className="block text-sm font-semibold mb-1">Jina Kamili *</label>
+          <input required value={form.fullName}
+            onChange={e => setForm({ ...form, fullName: e.target.value })}
+            className="w-full border rounded-lg px-3 py-2" />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-1">Namba ya Simu *</label>
+          <input required value={form.phone}
+            onChange={e => setForm({ ...form, phone: e.target.value })}
+            placeholder="+255712345678"
+            className="w-full border rounded-lg px-3 py-2" />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-1">Jinsia</label>
+          <select value={form.gender}
+            onChange={e => setForm({ ...form, gender: e.target.value as any })}
+            className="w-full border rounded-lg px-3 py-2">
+            <option value="me">Me</option>
+            <option value="ke">Ke</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-1">Kundi la Umri</label>
+          <select value={form.ageGroup}
+            onChange={e => setForm({ ...form, ageGroup: e.target.value as any })}
+            className="w-full border rounded-lg px-3 py-2">
+            <option value="watoto">Watoto</option>
+            <option value="vijana">Vijana</option>
+            <option value="wazee">Wazee</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-1">Huduma</label>
+          <select value={form.ministry}
+            onChange={e => setForm({ ...form, ministry: e.target.value })}
+            className="w-full border rounded-lg px-3 py-2">
+            <option>Kwaya</option>
+            <option>Vijana</option>
+            <option>Wanawake</option>
+            <option>Wazee</option>
+            <option>Usabato</option>
+            <option>Uinjilisti</option>
+          </select>
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-sm font-semibold mb-1">Anwani</label>
+          <input value={form.address}
+            onChange={e => setForm({ ...form, address: e.target.value })}
+            className="w-full border rounded-lg px-3 py-2" />
+        </div>
+
+        <label className="flex items-center gap-2 md:col-span-2">
+          <input type="checkbox" checked={form.baptized}
+            onChange={e => setForm({ ...form, baptized: e.target.checked })} />
+          <span>AmeBatizwa</span>
+        </label>
+
+        <div className="md:col-span-2 flex gap-3">
+          <button type="submit"
+            className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary-dark">
+            Hifadhi Mwanachama
+          </button>
+          <button type="button" onClick={() => navigate('/members')}
+            className="bg-gray-200 px-6 py-2 rounded-lg hover:bg-gray-300">
+            Ghairi
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+
+import { useState, useRef, useEffect } from 'react';
+import { useChatStore } from '../store/chatStore';
+import { Send, Plus, Trash2, Hash } from 'lucide-react';
+import Modal from '../components/Modal';
+
+export default function Chat() {
+  const messages = useChatStore(s => s.messages);
+  const rooms = useChatStore(s => s.rooms);
+  const addRoom = useChatStore(s => s.addRoom);
+  const deleteRoom = useChatStore(s => s.deleteRoom);
+  const sendMessage = useChatStore(s => s.sendMessage);
+  const [text, setText] = useState('');
+  const [room, setRoom] = useState('general');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [roomName, setRoomName] = useState('');
+  const endRef = useRef<HTMLDivElement>(null);
+
+  const filtered = messages.filter(m => m.room === room);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [filtered]);
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    sendMessage('current-user', 'Mimi', text, room);
+    setText('');
+  };
+
+  const handleCreateRoom = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!roomName.trim()) return;
+    addRoom(roomName);
+    setRoom(roomName.toLowerCase().replace(/\s+/g, '-'));
+    setRoomName('');
+    setIsModalOpen(false);
+  };
+
+  const handleCloseModal = () => {
+    setRoomName('');
+    setIsModalOpen(false);
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Mazungumzo</h1>
+        <button onClick={() => setIsModalOpen(true)}
+          className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2">
+          <Plus size={18} /> Unda Room Mpya
+        </button>
+      </div>
+
+      <Modal isOpen={isModalOpen} onClose={handleCloseModal} title="Unda Room Mpya">
+        <form onSubmit={handleCreateRoom} className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold mb-1">Jina la Room *</label>
+            <input required value={roomName}
+              onChange={e => setRoomName(e.target.value)}
+              placeholder="Mfano: Kwaya, Uinjilisti..."
+              className="w-full border rounded-lg px-3 py-2" />
+            <p className="text-xs text-gray-500 mt-1">
+              Room itaonekana kama: #{roomName.toLowerCase().replace(/\s+/g, '-') || 'jina-la-room'}
+            </p>
+          </div>
+          <div className="flex gap-3 justify-end pt-4 border-t">
+            <button type="button" onClick={handleCloseModal}
+              className="bg-gray-200 px-6 py-2 rounded-lg hover:bg-gray-300">
+              Ghairi
+            </button>
+            <button type="submit"
+              className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary-dark">
+              Unda
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {rooms.map(r => (
+          <div key={r} className="relative group">
+            <button onClick={() => setRoom(r)}
+              className={`px-4 py-2 rounded-lg text-sm flex items-center gap-1 ${room === r ? 'bg-primary text-white' : 'bg-white'}`}>
+              <Hash size={14} /> {r}
+            </button>
+            {r !== 'general' && (
+              <button onClick={() => deleteRoom(r)}
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition">
+                <Trash2 size={10} />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-lg shadow flex flex-col h-[600px]">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {filtered.length === 0 ? (
+            <p className="text-center text-gray-400 mt-8">Hakuna ujumbe bado. Anza mazungumzo!</p>
+          ) : (
+            filtered.map(m => (
+              <div key={m.id} className={`flex ${m.senderId === 'current-user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[70%] rounded-lg p-3 ${m.senderId === 'current-user' ? 'bg-primary text-white' : 'bg-gray-100'}`}>
+                  <p className="text-xs font-semibold mb-1">{m.senderName}</p>
+                  <p>{m.message}</p>
+                  <p className="text-xs opacity-70 mt-1">
+                    {new Date(m.timestamp).toLocaleTimeString()}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
+          <div ref={endRef} />
+        </div>
+
+        <form onSubmit={handleSend} className="border-t p-4 flex gap-2">
+          <input
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder={`Andika ujumbe kwenye #${room}...`}
+            className="flex-1 border rounded-lg px-3 py-2"
+          />
+          <button type="submit" className="bg-primary text-white px-4 rounded-lg">
+            <Send size={18} />
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
+
+import { useState } from 'react';
+import { useLeaderStore } from '../store/leaderStore';
+import { Plus, Trash2, Phone, Mail } from 'lucide-react';
+import Modal from '../components/Modal';
+
+export default function Leadership() {
+  const leaders = useLeaderStore(s => s.leaders);
+  const addLeader = useLeaderStore(s => s.addLeader);
+  const deleteLeader = useLeaderStore(s => s.deleteLeader);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [form, setForm] = useState({
+    name: '', position: '', photo: '', phone: '', email: '', bio: ''
+  });
+
+  const resetForm = () => setForm({
+    name: '', position: '', photo: '', phone: '', email: '', bio: ''
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const photo = form.photo || `https://i.pravatar.cc/150?u=${encodeURIComponent(form.name)}`;
+    addLeader({ ...form, photo });
+    resetForm();
+    setIsModalOpen(false);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    setIsModalOpen(false);
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Uongozi wa Kanisa</h1>
+        <button onClick={() => setIsModalOpen(true)}
+          className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2">
+          <Plus size={18} /> Ongeza Kiongozi
+        </button>
+      </div>
+
+      <Modal isOpen={isModalOpen} onClose={handleClose} title="Ongeza Kiongozi Mpya">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold mb-1">Jina Kamili *</label>
+            <input required value={form.name}
+              onChange={e => setForm({ ...form, name: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold mb-1">Wadhifa *</label>
+            <input required value={form.position}
+              onChange={e => setForm({ ...form, position: e.target.value })}
+              placeholder="Mchungaji, Mzee wa Kanisa, n.k."
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-1">Namba ya Simu *</label>
+            <input required value={form.phone}
+              onChange={e => setForm({ ...form, phone: e.target.value })}
+              placeholder="+255712345678"
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-1">Barua Pepe</label>
+            <input type="email" value={form.email}
+              onChange={e => setForm({ ...form, email: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold mb-1">URL ya Picha (hiari)</label>
+            <input value={form.photo}
+              onChange={e => setForm({ ...form, photo: e.target.value })}
+              placeholder="Acha wazi kutumia picha ya kiotomatiki"
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold mb-1">Wasifu</label>
+            <textarea value={form.bio} rows={3}
+              onChange={e => setForm({ ...form, bio: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+
+          <div className="md:col-span-2 flex gap-3 justify-end pt-4 border-t">
+            <button type="button" onClick={handleClose}
+              className="bg-gray-200 px-6 py-2 rounded-lg hover:bg-gray-300">
+              Ghairi
+            </button>
+            <button type="submit"
+              className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary-dark">
+              Hifadhi
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {leaders.map(l => (
+          <div key={l.id} className="bg-white rounded-lg shadow p-6 text-center relative group">
+            <button onClick={() => deleteLeader(l.id)}
+              className="absolute top-3 right-3 text-red-500 opacity-0 group-hover:opacity-100 transition">
+              <Trash2 size={16} />
+            </button>
+            <img src={l.photo} alt={l.name}
+              className="w-24 h-24 rounded-full mx-auto mb-4 object-cover" />
+            <h3 className="font-bold text-lg">{l.name}</h3>
+            <p className="text-primary font-semibold text-sm mb-3">{l.position}</p>
+            <div className="space-y-1 text-sm text-gray-600">
+              <p className="flex items-center justify-center gap-2">
+                <Phone size={14} /> {l.phone}
+              </p>
+              {l.email && (
+                <p className="flex items-center justify-center gap-2">
+                  <Mail size={14} /> {l.email}
+                </p>
+              )}
+            </div>
+            {l.bio && (
+              <p className="text-xs text-gray-500 mt-3 italic">{l.bio}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+import { useState } from 'react';
+import { useNewsStore } from '../store/newsStore';
+import { Plus, Trash2 } from 'lucide-react';
+import Modal from '../components/Modal';
+
+export default function News() {
+  const news = useNewsStore(s => s.news);
+  const addNews = useNewsStore(s => s.addNews);
+  const deleteNews = useNewsStore(s => s.deleteNews);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [form, setForm] = useState({
+    title: '', content: '', author: 'Msimamizi', category: 'tangazo' as const
+  });
+
+  const resetForm = () => setForm({
+    title: '', content: '', author: 'Msimamizi', category: 'tangazo'
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    addNews(form);
+    resetForm();
+    setIsModalOpen(false);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    setIsModalOpen(false);
+  };
+
+  const colors: Record<string, string> = {
+    tangazo: 'bg-blue-100 text-blue-700',
+    tukio: 'bg-green-100 text-green-700',
+    habari: 'bg-orange-100 text-orange-700',
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Habari na Matangazo</h1>
+        <button onClick={() => setIsModalOpen(true)}
+          className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2">
+          <Plus size={18} /> Ongeza Habari
+        </button>
+      </div>
+
+      <Modal isOpen={isModalOpen} onClose={handleClose} title="Ongeza Habari Mpya">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold mb-1">Kichwa *</label>
+            <input required value={form.title}
+              onChange={e => setForm({ ...form, title: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Maudhui *</label>
+            <textarea required value={form.content} rows={4}
+              onChange={e => setForm({ ...form, content: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Kategoria</label>
+            <select value={form.category}
+              onChange={e => setForm({ ...form, category: e.target.value as any })}
+              className="w-full border rounded-lg px-3 py-2">
+              <option value="tangazo">Tangazo</option>
+              <option value="tukio">Tukio</option>
+              <option value="habari">Habari</option>
+            </select>
+          </div>
+          <div className="flex gap-3 justify-end pt-4 border-t">
+            <button type="button" onClick={handleClose}
+              className="bg-gray-200 px-6 py-2 rounded-lg hover:bg-gray-300">
+              Ghairi
+            </button>
+            <button type="submit"
+              className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary-dark">
+              Hifadhi
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {news.map(n => (
+          <div key={n.id} className="bg-white rounded-lg shadow p-6">
+            <div className="flex justify-between items-start mb-2">
+              <span className={`px-2 py-1 rounded text-xs font-semibold ${colors[n.category]}`}>
+                {n.category}
+              </span>
+              <button onClick={() => deleteNews(n.id)} className="text-red-500">
+                <Trash2 size={16} />
+              </button>
+            </div>
+            <h3 className="text-xl font-bold mb-2">{n.title}</h3>
+            <p className="text-gray-600 mb-3">{n.content}</p>
+            <p className="text-sm text-gray-400">
+              {n.author} - {new Date(n.publishedAt).toLocaleDateString()}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+
+import { useState } from 'react';
+import { useEventStore } from '../store/eventStore';
+import { Plus, Trash2, Calendar as CalIcon, Clock, MapPin } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import Modal from '../components/Modal';
+
+export default function Calendar() {
+  const events = useEventStore(s => s.events);
+  const addEvent = useEventStore(s => s.addEvent);
+  const deleteEvent = useEventStore(s => s.deleteEvent);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [form, setForm] = useState({
+    title: '', description: '', date: '', time: '',
+    location: '', category: 'ibada' as const
+  });
+
+  const resetForm = () => setForm({
+    title: '', description: '', date: '', time: '', location: '', category: 'ibada'
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    addEvent(form);
+    resetForm();
+    setIsModalOpen(false);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    setIsModalOpen(false);
+  };
+
+  const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date));
+
+  const colors: Record<string, string> = {
+    ibada: 'border-blue-500',
+    mkutano: 'border-green-500',
+    sherehe: 'border-yellow-500',
+    kikao: 'border-purple-500',
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Kalenda ya Kanisa</h1>
+        <button onClick={() => setIsModalOpen(true)}
+          className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2">
+          <Plus size={18} /> Ongeza Tukio
+        </button>
+      </div>
+
+      <Modal isOpen={isModalOpen} onClose={handleClose} title="Ongeza Tukio Jipya">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold mb-1">Kichwa *</label>
+            <input required value={form.title}
+              onChange={e => setForm({ ...form, title: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Tarehe *</label>
+            <input required type="date" value={form.date}
+              onChange={e => setForm({ ...form, date: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Muda *</label>
+            <input required type="time" value={form.time}
+              onChange={e => setForm({ ...form, time: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Mahali *</label>
+            <input required value={form.location}
+              onChange={e => setForm({ ...form, location: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Kategoria</label>
+            <select value={form.category}
+              onChange={e => setForm({ ...form, category: e.target.value as any })}
+              className="w-full border rounded-lg px-3 py-2">
+              <option value="ibada">Ibada</option>
+              <option value="mkutano">Mkutano</option>
+              <option value="sherehe">Sherehe</option>
+              <option value="kikao">Kikao</option>
+            </select>
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold mb-1">Maelezo</label>
+            <textarea value={form.description}
+              onChange={e => setForm({ ...form, description: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div className="md:col-span-2 flex gap-3 justify-end pt-4 border-t">
+            <button type="button" onClick={handleClose}
+              className="bg-gray-200 px-6 py-2 rounded-lg hover:bg-gray-300">
+              Ghairi
+            </button>
+            <button type="submit"
+              className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary-dark">
+              Hifadhi
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <div className="space-y-4">
+        {sorted.map(e => (
+          <div key={e.id} className={`bg-white rounded-lg shadow p-5 border-l-4 ${colors[e.category]}`}>
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-xl font-bold">{e.title}</h3>
+                <p className="text-gray-600 mt-1">{e.description}</p>
+                <div className="flex gap-4 mt-3 text-sm text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <CalIcon size={14} /> {format(parseISO(e.date), 'dd MMM yyyy')}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock size={14} /> {e.time}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <MapPin size={14} /> {e.location}
+                  </span>
+                </div>
+              </div>
+              <button onClick={() => deleteEvent(e.id)} className="text-red-500">
+                <Trash2 size={16} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+import { useState } from 'react';
+import { useMinistryStore } from '../store/ministryStore';
+import { Plus, Trash2, Users, Calendar } from 'lucide-react';
+import Modal from '../components/Modal';
+
+export default function Ministries() {
+  const ministries = useMinistryStore(s => s.ministries);
+  const addMinistry = useMinistryStore(s => s.addMinistry);
+  const deleteMinistry = useMinistryStore(s => s.deleteMinistry);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [form, setForm] = useState({
+    name: '', description: '', leader: '',
+    memberCount: 0, meetingDay: 'Jumamosi', icon: ''
+  });
+
+  const resetForm = () => setForm({
+    name: '', description: '', leader: '',
+    memberCount: 0, meetingDay: 'Jumamosi', icon: ''
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    addMinistry(form);
+    resetForm();
+    setIsModalOpen(false);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    setIsModalOpen(false);
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Huduma za Kanisa</h1>
+        <button onClick={() => setIsModalOpen(true)}
+          className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2">
+          <Plus size={18} /> Ongeza Huduma
+        </button>
+      </div>
+
+      <Modal isOpen={isModalOpen} onClose={handleClose} title="Ongeza Huduma Mpya">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold mb-1">Jina la Huduma *</label>
+            <input required value={form.name}
+              onChange={e => setForm({ ...form, name: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold mb-1">Maelezo</label>
+            <textarea value={form.description} rows={3}
+              onChange={e => setForm({ ...form, description: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-1">Kiongozi *</label>
+            <input required value={form.leader}
+              onChange={e => setForm({ ...form, leader: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-1">Idadi ya Wanachama</label>
+            <input type="number" min={0} value={form.memberCount}
+              onChange={e => setForm({ ...form, memberCount: +e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-1">Siku ya Mkutano</label>
+            <select value={form.meetingDay}
+              onChange={e => setForm({ ...form, meetingDay: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2">
+              <option>Jumatatu</option>
+              <option>Jumanne</option>
+              <option>Jumatano</option>
+              <option>Alhamisi</option>
+              <option>Ijumaa</option>
+              <option>Jumamosi</option>
+              <option>Jumapili</option>
+            </select>
+          </div>
+
+          <div className="md:col-span-2 flex gap-3 justify-end pt-4 border-t">
+            <button type="button" onClick={handleClose}
+              className="bg-gray-200 px-6 py-2 rounded-lg hover:bg-gray-300">
+              Ghairi
+            </button>
+            <button type="submit"
+              className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary-dark">
+              Hifadhi
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {ministries.map(m => (
+          <div key={m.id} className="bg-white rounded-lg shadow p-6 relative group">
+            <button onClick={() => deleteMinistry(m.id)}
+              className="absolute top-3 right-3 text-red-500 opacity-0 group-hover:opacity-100 transition">
+              <Trash2 size={16} />
+            </button>
+            <h3 className="text-xl font-bold mb-2">{m.name}</h3>
+            <p className="text-gray-600 text-sm mb-4">{m.description}</p>
+            <div className="space-y-2 text-sm">
+              <p className="flex items-center gap-2 text-gray-600">
+                <Users size={14} /> Kiongozi: {m.leader}
+              </p>
+              <p className="flex items-center gap-2 text-gray-600">
+                <Users size={14} /> Wanachama: {m.memberCount}
+              </p>
+              <p className="flex items-center gap-2 text-gray-600">
+                <Calendar size={14} /> Siku: {m.meetingDay}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+import { useState } from 'react';
+import { useUserStore } from '../store/userStore';
+import {
+  Bell, Lock, Globe, Moon, Mail, MessageSquare,
+  Eye, EyeOff, Check, Save, Trash2, Shield,
+  Smartphone, Key
+} from 'lucide-react';
+
+export default function Settings() {
+  const user = useUserStore(s => s.user);
+  const [activeTab, setActiveTab] = useState<'general' | 'notifications' | 'security' | 'appearance'>('general');
+  const [success, setSuccess] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  // General settings
+  const [general, setGeneral] = useState({
+    language: 'sw',
+    timezone: 'Africa/Dar_es_Salaam',
+  });
+
+  // Notifications
+  const [notifications, setNotifications] = useState({
+    email: true,
+    sms: true,
+    push: false,
+    events: true,
+    news: true,
+    chat: true,
+  });
+
+  // Security
+  const [password, setPassword] = useState({
+    current: '',
+    newPassword: '',
+    confirm: '',
+  });
+
+  // Appearance
+  const [appearance, setAppearance] = useState({
+    theme: 'light',
+    primaryColor: 'blue',
+  });
+
+  const handleSave = (section: string) => {
+    setSuccess(`${section} zimehifadhiwa!`);
+    setTimeout(() => setSuccess(''), 3000);
+  };
+
+  const tabs = [
+    { id: 'general', label: 'Jumla', icon: Globe },
+    { id: 'notifications', label: 'Taarifa', icon: Bell },
+    { id: 'security', label: 'Usalama', icon: Lock },
+    { id: 'appearance', label: 'Muonekano', icon: Moon },
+  ] as const;
+
+  const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
+    <button
+      type="button"
+      onClick={onChange}
+      className={`relative w-11 h-6 rounded-full transition ${
+        checked ? 'bg-primary' : 'bg-gray-300'
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+          checked ? 'translate-x-5' : ''
+        }`}
+      />
+    </button>
+  );
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Mipangilio</h1>
+        <p className="text-gray-500 text-sm mt-1">Simamia mipangilio ya akaunti yako</p>
+      </div>
+
+      {/* Success message */}
+      {success && (
+        <div className="bg-green-50 border border-green-200 text-green-700 rounded-lg p-4 flex items-center gap-3">
+          <Check size={20} />
+          <span className="font-semibold">{success}</span>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-2 flex gap-2 overflow-x-auto custom-scrollbar">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm whitespace-nowrap transition ${
+              activeTab === tab.id
+                ? 'bg-primary text-white'
+                : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <tab.icon size={16} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ===== GENERAL ===== */}
+      {activeTab === 'general' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 lg:p-8 space-y-6">
+          <div>
+            <h3 className="text-lg font-bold text-gray-800 mb-1">Mipangilio ya Jumla</h3>
+            <p className="text-sm text-gray-500">Lugha, saa, na mipangilio ya msingi</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Lugha</label>
+            <select
+              value={general.language}
+              onChange={e => setGeneral({ ...general, language: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="sw">Kiswahili</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Saa za Eneo</label>
+            <select
+              value={general.timezone}
+              onChange={e => setGeneral({ ...general, timezone: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="Africa/Dar_es_Salaam">Africa/Dar es Salaam (EAT)</option>
+              <option value="Africa/Nairobi">Africa/Nairobi (EAT)</option>
+              <option value="UTC">UTC</option>
+            </select>
+          </div>
+
+          <div className="pt-4 border-t flex justify-end">
+            <button
+              onClick={() => handleSave('Mipangilio ya jumla')}
+              className="bg-primary text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-primary-dark transition flex items-center gap-2"
+            >
+              <Save size={16} /> Hifadhi
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== NOTIFICATIONS ===== */}
+      {activeTab === 'notifications' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 lg:p-8 space-y-6">
+          <div>
+            <h3 className="text-lg font-bold text-gray-800 mb-1">Taarifa</h3>
+            <p className="text-sm text-gray-500">Chagua jinsi unavyopenda kupokea taarifa</p>
+          </div>
+
+          <div className="space-y-4">
+            {[
+              { key: 'email', label: 'Barua Pepe', desc: 'Pokea taarifa kwa barua pepe', icon: Mail },
+              { key: 'sms', label: 'SMS', desc: 'Pokea taarifa kwa SMS', icon: MessageSquare },
+              { key: 'push', label: 'Push', desc: 'Pokea taarifa kwenye kifaa', icon: Smartphone },
+            ].map(item => (
+              <div key={item.key} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                    <item.icon size={18} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-800 text-sm">{item.label}</p>
+                    <p className="text-xs text-gray-500">{item.desc}</p>
+                  </div>
+                </div>
+                <Toggle
+                  checked={notifications[item.key as keyof typeof notifications]}
+                  onChange={() => setNotifications({
+                    ...notifications,
+                    [item.key]: !notifications[item.key as keyof typeof notifications]
+                  })}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-4 border-t">
+            <h4 className="font-semibold text-gray-700 text-sm mb-3">Aina za Taarifa</h4>
+            <div className="space-y-3">
+              {[
+                { key: 'events', label: 'Matukio ya Kanisa' },
+                { key: 'news', label: 'Habari Mpya' },
+                { key: 'chat', label: 'Ujumbe wa Mazungumzo' },
+              ].map(item => (
+                <div key={item.key} className="flex items-center justify-between py-2">
+                  <span className="text-sm text-gray-700">{item.label}</span>
+                  <Toggle
+                    checked={notifications[item.key as keyof typeof notifications]}
+                    onChange={() => setNotifications({
+                      ...notifications,
+                      [item.key]: !notifications[item.key as keyof typeof notifications]
+                    })}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="pt-4 border-t flex justify-end">
+            <button
+              onClick={() => handleSave('Taarifa')}
+              className="bg-primary text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-primary-dark transition flex items-center gap-2"
+            >
+              <Save size={16} /> Hifadhi
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== SECURITY ===== */}
+      {activeTab === 'security' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 lg:p-8 space-y-6">
+          <div>
+            <h3 className="text-lg font-bold text-gray-800 mb-1">Usalama</h3>
+            <p className="text-sm text-gray-500">Badilisha nenosiri lako na simamia usalama</p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Nenosiri la Sasa
+              </label>
+              <div className="relative">
+                <Lock size={18} className="absolute left-3 top-3.5 text-gray-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password.current}
+                  onChange={e => setPassword({ ...password, current: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full border rounded-lg pl-10 pr-10 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Nenosiri Jipya
+              </label>
+              <div className="relative">
+                <Key size={18} className="absolute left-3 top-3.5 text-gray-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password.newPassword}
+                  onChange={e => setPassword({ ...password, newPassword: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full border rounded-lg pl-10 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Rudia Nenosiri Jipya
+              </label>
+              <div className="relative">
+                <Key size={18} className="absolute left-3 top-3.5 text-gray-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password.confirm}
+                  onChange={e => setPassword({ ...password, confirm: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full border rounded-lg pl-10 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t flex justify-end">
+            <button
+              onClick={() => {
+                if (!password.current || !password.newPassword || !password.confirm) {
+                  setSuccess('Jaza sehemu zote za nenosiri');
+                  setTimeout(() => setSuccess(''), 3000);
+                  return;
+                }
+                if (password.newPassword !== password.confirm) {
+                  setSuccess('Nenosiri hazifanani');
+                  setTimeout(() => setSuccess(''), 3000);
+                  return;
+                }
+                handleSave('Nenosiri');
+                setPassword({ current: '', newPassword: '', confirm: '' });
+              }}
+              className="bg-primary text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-primary-dark transition flex items-center gap-2"
+            >
+              <Save size={16} /> Badilisha Nenosiri
+            </button>
+          </div>
+
+          {/* Danger zone */}
+          <div className="pt-6 border-t">
+            <h4 className="font-bold text-red-600 text-sm mb-3 flex items-center gap-2">
+              <Shield size={16} /> Eneo la Hatari
+            </h4>
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-red-800 text-sm">Futa Akaunti</p>
+                <p className="text-xs text-red-600 mt-0.5">
+                  Hatua hii haiwezi kurudishwa
+                </p>
+              </div>
+              <button className="bg-red-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-700 transition text-sm flex items-center gap-2">
+                <Trash2 size={14} /> Futa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== APPEARANCE ===== */}
+      {activeTab === 'appearance' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 lg:p-8 space-y-6">
+          <div>
+            <h3 className="text-lg font-bold text-gray-800 mb-1">Muonekano</h3>
+            <p className="text-sm text-gray-500">Badilisha jinsi mfumo unavyoonekana</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-3">Mandhari</label>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { id: 'light', label: 'Nuru', bg: 'bg-white', border: 'border-gray-200' },
+                { id: 'dark', label: 'Giza', bg: 'bg-gray-800', border: 'border-gray-700' },
+                { id: 'system', label: 'Mfumo', bg: 'bg-gradient-to-br from-white to-gray-800', border: 'border-gray-300' },
+              ].map(theme => (
+                <button
+                  key={theme.id}
+                  onClick={() => setAppearance({ ...appearance, theme: theme.id })}
+                  className={`p-4 rounded-xl border-2 transition ${
+                    appearance.theme === theme.id
+                      ? 'border-primary ring-2 ring-primary/20'
+                      : theme.border
+                  }`}
+                >
+                  <div className={`w-full h-12 rounded-lg ${theme.bg} border mb-2`}></div>
+                  <p className="text-sm font-semibold text-gray-700">{theme.label}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="pt-4 border-t flex justify-end">
+            <button
+              onClick={() => handleSave('Muonekano')}
+              className="bg-primary text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-primary-dark transition flex items-center gap-2"
+            >
+              <Save size={16} /> Hifadhi
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+import { useMemberStore } from '../store/memberStore';
+import { useSMSStore } from '../store/smsStore';
+import { useEventStore } from '../store/eventStore';
+import { useNewsStore } from '../store/newsStore';
+import { Users, MessageSquare, Calendar, Newspaper } from 'lucide-react';
+
+export default function Dashboard() {
+  const members = useMemberStore(s => s.members);
+  const messages = useSMSStore(s => s.messages);
+  const events = useEventStore(s => s.events);
+  const news = useNewsStore(s => s.news);
+
+  const stats = [
+    { label: 'Wanachama', value: members.length, icon: Users, color: 'bg-blue-500' },
+    { label: 'SMS Zilizotumwa', value: messages.length, icon: MessageSquare, color: 'bg-green-500' },
+    { label: 'Matukio Yajayo', value: events.length, icon: Calendar, color: 'bg-purple-500' },
+    { label: 'Habari', value: news.length, icon: Newspaper, color: 'bg-orange-500' },
+  ];
+
+  return (
+    <div>
+      <h1 className="text-2xl lg:text-3xl font-bold mb-2">Karibu Bahi SDA Church</h1>
+      <p className="text-gray-500 mb-6 lg:mb-8">Mfumo wa usimamizi wa kanisa</p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
+        {stats.map((s) => (
+          <div key={s.label} className="bg-white rounded-lg shadow p-5 lg:p-6">
+            <div className={`w-12 h-12 ${s.color} rounded-lg mb-4 flex items-center justify-center text-white`}>
+              <s.icon size={24} />
+            </div>
+            <p className="text-gray-500 text-sm">{s.label}</p>
+            <p className="text-2xl lg:text-3xl font-bold">{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+        <div className="bg-white rounded-lg shadow p-5 lg:p-6">
+          <h2 className="text-lg lg:text-xl font-bold mb-4">Matukio Yajayo</h2>
+          <div className="space-y-3">
+            {events.slice(0, 4).map(e => (
+              <div key={e.id} className="border-l-4 border-primary pl-3">
+                <p className="font-semibold text-sm lg:text-base">{e.title}</p>
+                <p className="text-xs lg:text-sm text-gray-500">{e.date} - {e.time}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-5 lg:p-6">
+          <h2 className="text-lg lg:text-xl font-bold mb-4">Habari za Hivi Karibuni</h2>
+          <div className="space-y-3">
+            {news.slice(0, 4).map(n => (
+              <div key={n.id} className="border-l-4 border-accent pl-3">
+                <p className="font-semibold text-sm lg:text-base">{n.title}</p>
+                <p className="text-xs lg:text-sm text-gray-500">{n.author}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+import { useState, useRef } from 'react';
+import { useUserStore } from '../store/userStore';
+import {
+  User, Mail, Phone, MapPin, Calendar, Edit3,
+  Camera, Upload, X, Check, Save, Shield
+} from 'lucide-react';
+
+export default function Profile() {
+  const user = useUserStore(s => s.user);
+  const updateUser = useUserStore(s => s.updateUser);
+  const [isEditing, setIsEditing] = useState(false);
+  const [form, setForm] = useState(user);
+  const [success, setSuccess] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setForm({ ...form, photo: reader.result as string });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateUser(form);
+    setIsEditing(false);
+    setSuccess(true);
+    setTimeout(() => setSuccess(false), 3000);
+  };
+
+  const handleCancel = () => {
+    setForm(user);
+    setIsEditing(false);
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Wasifu Wangu</h1>
+        <p className="text-gray-500 text-sm mt-1">Simamia taarifa zako za kibinafsi</p>
+      </div>
+
+      {/* Success message */}
+      {success && (
+        <div className="bg-green-50 border border-green-200 text-green-700 rounded-lg p-4 flex items-center gap-3">
+          <Check size={20} />
+          <span className="font-semibold">Taarifa zimehifadhiwa kikamilifu!</span>
+        </div>
+      )}
+
+      {/* Profile header card */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        {/* Cover */}
+        <div className="h-32 bg-gradient-to-r from-primary via-blue-700 to-indigo-800 relative">
+          <div className="absolute inset-0 bg-white/5"></div>
+        </div>
+
+        <div className="px-6 lg:px-8 pb-6">
+          <div className="flex flex-col lg:flex-row lg:items-end gap-4 -mt-12">
+            {/* Photo */}
+            <div className="relative">
+              <img
+                src={form.photo}
+                alt={form.fullName}
+                className="w-24 h-24 lg:w-32 lg:h-32 rounded-2xl object-cover border-4 border-white shadow-lg"
+              />
+              {isEditing && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute -bottom-2 -right-2 bg-primary text-white p-2 rounded-full shadow-lg hover:bg-primary-dark transition"
+                >
+                  <Camera size={16} />
+                </button>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                className="hidden"
+              />
+            </div>
+
+            {/* Name + role */}
+            <div className="flex-1 lg:pb-2">
+              <h2 className="text-2xl font-bold text-gray-800">{user.fullName}</h2>
+              <p className="text-primary font-semibold flex items-center gap-1 mt-1">
+                <Shield size={14} /> {user.role}
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="lg:pb-2">
+              {!isEditing ? (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="bg-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-primary-dark transition flex items-center gap-2"
+                >
+                  <Edit3 size={16} /> Hariri Wasifu
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCancel}
+                    className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300 transition flex items-center gap-2"
+                  >
+                    <X size={16} /> Ghairi
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    className="bg-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-primary-dark transition flex items-center gap-2"
+                  >
+                    <Save size={16} /> Hifadhi
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Info card */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 lg:p-8">
+        <h3 className="text-lg font-bold text-gray-800 mb-6">Taarifa za Kibinafsi</h3>
+
+        <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Full name */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Jina Kamili
+            </label>
+            <div className="relative">
+              <User size={18} className="absolute left-3 top-3.5 text-gray-400" />
+              <input
+                type="text"
+                value={form.fullName}
+                onChange={e => setForm({ ...form, fullName: e.target.value })}
+                disabled={!isEditing}
+                className="w-full border rounded-lg pl-10 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-50 disabled:text-gray-500"
+              />
+            </div>
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Barua Pepe
+            </label>
+            <div className="relative">
+              <Mail size={18} className="absolute left-3 top-3.5 text-gray-400" />
+              <input
+                type="email"
+                value={form.email}
+                onChange={e => setForm({ ...form, email: e.target.value })}
+                disabled={!isEditing}
+                className="w-full border rounded-lg pl-10 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-50 disabled:text-gray-500"
+              />
+            </div>
+          </div>
+
+          {/* Phone */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Namba ya Simu
+            </label>
+            <div className="relative">
+              <Phone size={18} className="absolute left-3 top-3.5 text-gray-400" />
+              <input
+                type="text"
+                value={form.phone}
+                onChange={e => setForm({ ...form, phone: e.target.value })}
+                disabled={!isEditing}
+                className="w-full border rounded-lg pl-10 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-50 disabled:text-gray-500"
+              />
+            </div>
+          </div>
+
+          {/* Address */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Anwani
+            </label>
+            <div className="relative">
+              <MapPin size={18} className="absolute left-3 top-3.5 text-gray-400" />
+              <input
+                type="text"
+                value={form.address}
+                onChange={e => setForm({ ...form, address: e.target.value })}
+                disabled={!isEditing}
+                className="w-full border rounded-lg pl-10 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-50 disabled:text-gray-500"
+              />
+            </div>
+          </div>
+
+          {/* Bio */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Wasifu
+            </label>
+            <textarea
+              value={form.bio}
+              onChange={e => setForm({ ...form, bio: e.target.value })}
+              disabled={!isEditing}
+              rows={4}
+              className="w-full border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-50 disabled:text-gray-500"
+            />
+          </div>
+
+          {/* Joined */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Alijiunga
+            </label>
+            <div className="relative">
+              <Calendar size={18} className="absolute left-3 top-3.5 text-gray-400" />
+              <input
+                type="text"
+                value={new Date(user.joinedAt).toLocaleDateString('sw-TZ', {
+                  day: 'numeric', month: 'long', year: 'numeric'
+                })}
+                disabled
+                className="w-full border rounded-lg pl-10 pr-3 py-2.5 bg-gray-50 text-gray-500"
+              />
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+import { useState } from 'react';
+import { useMemberStore } from '../store/memberStore';
+import { Plus, Trash2, Search } from 'lucide-react';
+import Modal from '../components/Modal';
+
+export default function Members() {
+  const members = useMemberStore(s => s.members);
+  const addMember = useMemberStore(s => s.addMember);
+  const deleteMember = useMemberStore(s => s.deleteMember);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [form, setForm] = useState({
+    fullName: '', phone: '', gender: 'me' as const,
+    ageGroup: 'vijana' as const, ministry: 'Vijana',
+    baptized: false, address: ''
+  });
+
+  const filtered = members.filter(m =>
+    m.fullName.toLowerCase().includes(search.toLowerCase()) ||
+    m.phone.includes(search)
+  );
+
+  const resetForm = () => {
+    setForm({ fullName: '', phone: '', gender: 'me', ageGroup: 'vijana', ministry: 'Vijana', baptized: false, address: '' });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    addMember(form);
+    resetForm();
+    setIsModalOpen(false);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    setIsModalOpen(false);
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Wanachama</h1>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-dark"
+        >
+          <Plus size={18} /> Ongeza Mwanachama
+        </button>
+      </div>
+
+      {/* Modal */}
+      <Modal isOpen={isModalOpen} onClose={handleClose} title="Ongeza Mwanachama Mpya">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold mb-1">Jina Kamili *</label>
+            <input required value={form.fullName}
+              onChange={e => setForm({ ...form, fullName: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-1">Namba ya Simu *</label>
+            <input required value={form.phone}
+              onChange={e => setForm({ ...form, phone: e.target.value })}
+              placeholder="+255712345678"
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-1">Jinsia</label>
+            <select value={form.gender}
+              onChange={e => setForm({ ...form, gender: e.target.value as any })}
+              className="w-full border rounded-lg px-3 py-2">
+              <option value="me">Me</option>
+              <option value="ke">Ke</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-1">Kundi la Umri</label>
+            <select value={form.ageGroup}
+              onChange={e => setForm({ ...form, ageGroup: e.target.value as any })}
+              className="w-full border rounded-lg px-3 py-2">
+              <option value="watoto">Watoto</option>
+              <option value="vijana">Vijana</option>
+              <option value="wazee">Wazee</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-1">Huduma</label>
+            <select value={form.ministry}
+              onChange={e => setForm({ ...form, ministry: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2">
+              <option>Kwaya</option>
+              <option>Vijana</option>
+              <option>Wanawake</option>
+              <option>Wazee</option>
+              <option>Usabato</option>
+              <option>Uinjilisti</option>
+            </select>
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold mb-1">Anwani</label>
+            <input value={form.address}
+              onChange={e => setForm({ ...form, address: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2" />
+          </div>
+
+          <label className="flex items-center gap-2 md:col-span-2">
+            <input type="checkbox" checked={form.baptized}
+              onChange={e => setForm({ ...form, baptized: e.target.checked })} />
+            <span>AmeBatizwa</span>
+          </label>
+
+          <div className="md:col-span-2 flex gap-3 justify-end pt-4 border-t">
+            <button type="button" onClick={handleClose}
+              className="bg-gray-200 px-6 py-2 rounded-lg hover:bg-gray-300">
+              Ghairi
+            </button>
+            <button type="submit"
+              className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary-dark">
+              Hifadhi
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Search */}
+      <div className="bg-white rounded-lg shadow p-4 mb-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-3 text-gray-400" size={18} />
+          <input
+            placeholder="Tafuta kwa jina au simu..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full border rounded-lg pl-10 pr-3 py-2"
+          />
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-lg shadow overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b">
+            <tr>
+              <th className="px-4 py-3 text-left">Jina</th>
+              <th className="px-4 py-3 text-left">Simu</th>
+              <th className="px-4 py-3 text-left">Jinsia</th>
+              <th className="px-4 py-3 text-left">Kundi</th>
+              <th className="px-4 py-3 text-left">Huduma</th>
+              <th className="px-4 py-3 text-left">Ubatizo</th>
+              <th className="px-4 py-3 text-left">Hatua</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(m => (
+              <tr key={m.id} className="border-b hover:bg-gray-50">
+                <td className="px-4 py-3 font-semibold">{m.fullName}</td>
+                <td className="px-4 py-3">{m.phone}</td>
+                <td className="px-4 py-3">{m.gender === 'me' ? 'Me' : 'Ke'}</td>
+                <td className="px-4 py-3 capitalize">{m.ageGroup}</td>
+                <td className="px-4 py-3">{m.ministry}</td>
+                <td className="px-4 py-3">{m.baptized ? '✅' : '❌'}</td>
+                <td className="px-4 py-3">
+                  <button onClick={() => deleteMember(m.id)} className="text-red-500 hover:text-red-700">
+                    <Trash2 size={16} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+import { Menu, Bell, LogOut, User, Settings } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+
+interface TopbarProps {
+  onMenuClick: () => void;
+  title?: string;
+}
+
+export default function Topbar({ onMenuClick, title = 'Dashboard' }: TopbarProps) {
+  const navigate = useNavigate();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleNavigate = (path: string) => {
+    setIsProfileOpen(false);
+    navigate(path);
+  };
+
+  return (
+    <header className="bg-white border-b sticky top-0 z-40 h-16">
+      <div className="flex items-center justify-between h-full px-4 lg:px-6">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onMenuClick}
+            className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition"
+            aria-label="Fungua menu"
+          >
+            <Menu size={22} />
+          </button>
+          <h1 className="text-lg lg:text-xl font-bold text-gray-800">{title}</h1>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button className="relative p-2 hover:bg-gray-100 rounded-lg transition">
+            <Bell size={20} className="text-gray-600" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+          </button>
+
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 transition"
+            >
+              <img
+                src="https://i.pravatar.cc/150?u=admin"
+                alt="Profile"
+                className="w-9 h-9 rounded-full object-cover border-2 border-primary"
+              />
+            </button>
+
+            {isProfileOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border py-2 z-50">
+                <div className="px-4 py-3 border-b">
+                  <p className="font-semibold text-sm">Msimamizi</p>
+                  <p className="text-xs text-gray-500">admin@bahisda.org</p>
+                </div>
+
+                <button
+                  onClick={() => handleNavigate('/profile')}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 text-sm text-left transition"
+                >
+                  <User size={16} className="text-gray-500" />
+                  Wasifu Wangu
+                </button>
+
+                <button
+                  onClick={() => handleNavigate('/settings')}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 text-sm text-left transition"
+                >
+                  <Settings size={16} className="text-gray-500" />
+                  Mipangilio
+                </button>
+
+                <div className="border-t my-1"></div>
+
+                <button
+                  onClick={() => handleNavigate('/login')}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 text-sm text-left text-red-600 transition"
+                >
+                  <LogOut size={16} />
+                  Toka
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+import { X } from 'lucide-react';
+import { useEffect } from 'react';
+
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}
+
+export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
+  // Close on Escape key
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    if (isOpen) document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [isOpen, onClose]);
+
+  // Prevent body scroll when open
+  useEffect(() => {
+    if (isOpen) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = 'unset';
+    return () => { document.body.style.overflow = 'unset'; };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white z-10">
+          <h2 className="text-xl font-bold">{title}</h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition"
+            aria-label="Funga"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-6">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+import { create } from 'zustand';
+import type { ChurchEvent } from '../types';
+import { initialEvents } from '../data/mockData';
+
+interface EventState {
+  events: ChurchEvent[];
+  addEvent: (e: Omit<ChurchEvent, 'id'>) => void;
+  deleteEvent: (id: string) => void;
+}
+
+export const useEventStore = create<EventState>((set, get) => ({
+  events: initialEvents,
+  addEvent: (e) => set({ events: [...get().events, { ...e, id: crypto.randomUUID() }] }),
+  deleteEvent: (id) => set({ events: get().events.filter(x => x.id !== id) }),
+}));
+
+import { create } from 'zustand';
+import type { NewsItem } from '../types';
+import { initialNews } from '../data/mockData';
+
+interface NewsState {
+  news: NewsItem[];
+  addNews: (n: Omit<NewsItem, 'id' | 'publishedAt'>) => void;
+  deleteNews: (id: string) => void;
+}
+
+export const useNewsStore = create<NewsState>((set, get) => ({
+  news: initialNews,
+  addNews: (n) => set({
+    news: [{ ...n, id: crypto.randomUUID(), publishedAt: new Date().toISOString() }, ...get().news]
+  }),
+  deleteNews: (id) => set({ news: get().news.filter(x => x.id !== id) }),
+}));
+
+import { create } from 'zustand';
+import type { ChatMessage } from '../types';
+import { initialMessages } from '../data/mockData';
+
+interface ChatState {
+  messages: ChatMessage[];
+  rooms: string[];
+  addRoom: (name: string) => void;
+  deleteRoom: (name: string) => void;
+  sendMessage: (senderId: string, senderName: string, message: string, room: string) => void;
+}
+
+export const useChatStore = create<ChatState>((set, get) => ({
+  messages: initialMessages,
+  rooms: ['general', 'vijana', 'wanawake', 'wazee', 'uongozi'],
+
+  addRoom: (name) => {
+    const clean = name.toLowerCase().replace(/\s+/g, '-');
+    if (get().rooms.includes(clean)) return;
+    set({ rooms: [...get().rooms, clean] });
+  },
+
+  deleteRoom: (name) => set({
+    rooms: get().rooms.filter(r => r !== name),
+    messages: get().messages.filter(m => m.room !== name),
+  }),
+
+  sendMessage: (senderId, senderName, message, room) => set({
+    messages: [...get().messages, {
+      id: crypto.randomUUID(),
+      senderId,
+      senderName,
+      message,
+      room,
+      timestamp: new Date().toISOString(),
+    }]
+  }),
+}));
+
+import { create } from 'zustand';
+import type { Book } from '../types';
+import { initialBooks } from '../data/mockData';
+
+interface BookState {
+  books: Book[];
+  addBook: (b: Omit<Book, 'id' | 'uploadedAt'>) => void;
+  deleteBook: (id: string) => void;
+}
+
+export const useBookStore = create<BookState>((set, get) => ({
+  books: initialBooks,
+  addBook: (b) => set({
+    books: [{ ...b, id: crypto.randomUUID(), uploadedAt: new Date().toISOString() }, ...get().books]
+  }),
+  deleteBook: (id) => set({ books: get().books.filter(x => x.id !== id) }),
+}));
+
+import { create } from 'zustand';
+import type { Leader } from '../types';
+import { initialLeaders } from '../data/mockData';
+
+interface LeaderState {
+  leaders: Leader[];
+  addLeader: (l: Omit<Leader, 'id'>) => void;
+  updateLeader: (id: string, l: Partial<Leader>) => void;
+  deleteLeader: (id: string) => void;
+}
+
+export const useLeaderStore = create<LeaderState>((set, get) => ({
+  leaders: initialLeaders,
+  addLeader: (l) => set({
+    leaders: [...get().leaders, { ...l, id: crypto.randomUUID() }]
+  }),
+  updateLeader: (id, l) => set({
+    leaders: get().leaders.map(x => x.id === id ? { ...x, ...l } : x)
+  }),
+  deleteLeader: (id) => set({
+    leaders: get().leaders.filter(x => x.id !== id)
+  }),
+}));
+
+import { create } from 'zustand';
+
+export interface UserProfile {
+  fullName: string;
+  email: string;
+  phone: string;
+  role: string;
+  photo: string;
+  bio: string;
+  address: string;
+  joinedAt: string;
+}
+
+interface UserState {
+  user: UserProfile;
+  updateUser: (data: Partial<UserProfile>) => void;
+}
+
+export const useUserStore = create<UserState>((set, get) => ({
+  user: {
+    fullName: 'Msimamizi',
+    email: 'admin@bahisda.org',
+    phone: '+255712345678',
+    role: 'Msimamizi Mkuu',
+    photo: 'https://i.pravatar.cc/150?u=admin',
+    bio: 'Msimamizi wa mfumo wa kanisa la Bahi SDA.',
+    address: 'Bahi, Tanzania',
+    joinedAt: '2024-01-15',
+  },
+  updateUser: (data) => set({ user: { ...get().user, ...data } }),
+}));
+
+import { create } from 'zustand';
+import type { Ministry } from '../types';
+import { initialMinistries } from '../data/mockData';
+
+interface MinistryState {
+  ministries: Ministry[];
+  addMinistry: (m: Omit<Ministry, 'id'>) => void;
+  updateMinistry: (id: string, m: Partial<Ministry>) => void;
+  deleteMinistry: (id: string) => void;
+}
+
+export const useMinistryStore = create<MinistryState>((set, get) => ({
+  ministries: initialMinistries,
+  addMinistry: (m) => set({
+    ministries: [...get().ministries, { ...m, id: crypto.randomUUID() }]
+  }),
+  updateMinistry: (id, m) => set({
+    ministries: get().ministries.map(x => x.id === id ? { ...x, ...m } : x)
+  }),
+  deleteMinistry: (id) => set({
+    ministries: get().ministries.filter(x => x.id !== id)
+  }),
+}));
+
+import { create } from 'zustand';
+import type { GalleryItem } from '../types';
+import { initialGallery } from '../data/mockData';
+
+interface GalleryState {
+  items: GalleryItem[];
+  addItem: (item: Omit<GalleryItem, 'id' | 'uploadedAt'>) => void;
+  deleteItem: (id: string) => void;
+}
+
+export const useGalleryStore = create<GalleryState>((set, get) => ({
+  items: initialGallery,
+  addItem: (item) => set({
+    items: [{ ...item, id: crypto.randomUUID(), uploadedAt: new Date().toISOString() }, ...get().items]
+  }),
+  deleteItem: (id) => set({ items: get().items.filter(x => x.id !== id) }),
+}));
+
+import { create } from 'zustand';
+import type { SMSMessage } from '../types';
+import { initialSMS } from '../data/mockData';
+
+interface SMSState {
+  messages: SMSMessage[];
+  groups: Record<string, string[]>;
+  addGroup: (name: string, memberIds: string[]) => void;
+  deleteGroup: (name: string) => void;
+  sendSMS: (recipients: string[], message: string, group?: string) => void;
+}
+
+export const useSMSStore = create<SMSState>((set, get) => ({
+  messages: initialSMS,
+  groups: {},
+
+  addGroup: (name, memberIds) => set({
+    groups: { ...get().groups, [name]: memberIds }
+  }),
+
+  deleteGroup: (name) => {
+    const { [name]: _, ...rest } = get().groups;
+    set({ groups: rest });
+  },
+
+  sendSMS: (recipients, message, group) => set({
+    messages: [{
+      id: crypto.randomUUID(),
+      recipients,
+      message,
+      group,
+      sentAt: new Date().toISOString(),
+      status: 'sent',
+    }, ...get().messages]
+  }),
+}));
+
+import { create } from 'zustand';
+import type { Member } from '../types';
+import { initialMembers } from '../data/mockData';
+
+interface MemberState {
+  members: Member[];
+  addMember: (m: Omit<Member, 'id' | 'joinedAt'>) => void;
+  updateMember: (id: string, m: Partial<Member>) => void;
+  deleteMember: (id: string) => void;
+}
+
+export const useMemberStore = create<MemberState>((set, get) => ({
+  members: initialMembers,
+  addMember: (m) => set({
+    members: [...get().members, { ...m, id: crypto.randomUUID(), joinedAt: new Date().toISOString() }]
+  }),
+  updateMember: (id, m) => set({
+    members: get().members.map(x => x.id === id ? { ...x, ...m } : x)
+  }),
+  deleteMember: (id) => set({
+    members: get().members.filter(x => x.id !== id)
+  }),
+}));
+
+
+
+import type {
+  Member, GalleryItem, Book, ChatMessage,
+  Leader, NewsItem, ChurchEvent, Ministry, SMSMessage
+} from '../types';
+
+export const initialMembers: Member[] = [
+  { id: '1', fullName: 'Yohana Mwakyusa', phone: '+255712345678', gender: 'me', ageGroup: 'wazee', ministry: 'Uongozi', role: 'Mchungaji', baptized: true, joinedAt: '2010-05-15', address: 'Bahi' },
+  { id: '2', fullName: 'Martha Nyerere', phone: '+255713456789', gender: 'ke', ageGroup: 'wazee', ministry: 'Wanawake', baptized: true, joinedAt: '2012-08-20', address: 'Bahi' },
+  { id: '3', fullName: 'Daudi Komba', phone: '+255714567890', gender: 'me', ageGroup: 'vijana', ministry: 'Vijana', baptized: true, joinedAt: '2018-01-10', address: 'Bahi' },
+  { id: '4', fullName: 'Esther Mwansasu', phone: '+255715678901', gender: 'ke', ageGroup: 'vijana', ministry: 'Kwaya', baptized: false, joinedAt: '2020-03-05', address: 'Bahi' },
+  { id: '5', fullName: 'Petro Mwakyusa', phone: '+255716789012', gender: 'me', ageGroup: 'wazee', ministry: 'Wazee', role: 'Mzee wa Kanisa', baptized: true, joinedAt: '2008-11-12', address: 'Bahi' },
+];
+
+export const initialGallery: GalleryItem[] = [
+  { id: '1', title: 'Ibada ya Jumamosi', imageUrl: 'https://picsum.photos/400/300?random=1', album: 'Ibada', uploadedAt: '2026-01-15' },
+  { id: '2', title: 'Kambi ya Vijana', imageUrl: 'https://picsum.photos/400/300?random=2', album: 'Vijana', uploadedAt: '2026-02-20' },
+  { id: '3', title: 'Sherehe ya Krismasi', imageUrl: 'https://picsum.photos/400/300?random=3', album: 'Sherehe', uploadedAt: '2025-12-25' },
+  { id: '4', title: 'Kwaya ya Kanisa', imageUrl: 'https://picsum.photos/400/300?random=4', album: 'Kwaya', uploadedAt: '2026-03-10' },
+];
+
+export const initialBooks: Book[] = [
+  { id: '1', title: 'Steps to Christ', author: 'Ellen G. White', description: 'Kitabu cha msingi kwa kila Mkristo', coverUrl: 'https://picsum.photos/200/300?random=10', fileUrl: '#', category: 'Imani', uploadedAt: '2026-01-01' },
+  { id: '2', title: 'The Great Controversy', author: 'Ellen G. White', description: 'Historia ya vita kuu kati ya wema na uovu', coverUrl: 'https://picsum.photos/200/300?random=11', fileUrl: '#', category: 'Unabii', uploadedAt: '2026-01-05' },
+  { id: '3', title: 'Biblia Takatifu', author: 'Mungu', description: 'Neno la Mungu', coverUrl: 'https://picsum.photos/200/300?random=12', fileUrl: '#', category: 'Biblia', uploadedAt: '2026-01-10' },
+];
+
+export const initialMessages: ChatMessage[] = [
+  { id: '1', senderId: '2', senderName: 'Martha Nyerere', message: 'Habari za leo wote!', timestamp: new Date().toISOString(), room: 'general' },
+  { id: '2', senderId: '3', senderName: 'Daudi Komba', message: 'Salama mama, Mungu mwema', timestamp: new Date().toISOString(), room: 'general' },
+];
+
+export const initialLeaders: Leader[] = [
+  { id: '1', name: 'Yohana Mwakyusa', position: 'Mchungaji', photo: 'https://i.pravatar.cc/150?u=1', phone: '+255712345678', email: 'yohana@bahisda.org' },
+  { id: '2', name: 'Petro Mwakyusa', position: 'Mzee wa Kanisa', photo: 'https://i.pravatar.cc/150?u=2', phone: '+255716789012' },
+  { id: '3', name: 'Martha Nyerere', position: 'Mkurugenzi wa Wanawake', photo: 'https://i.pravatar.cc/150?u=3', phone: '+255713456789' },
+  { id: '4', name: 'Daudi Komba', position: 'Kiongozi wa Vijana', photo: 'https://i.pravatar.cc/150?u=4', phone: '+255714567890' },
+];
+
+export const initialNews: NewsItem[] = [
+  { id: '1', title: 'Kambi ya Vijana 2026', content: 'Kambi ya vijana itafanyika tarehe 15-20 Julai 2026 katika kanisa letu. Karibuni wote.', author: 'Daudi Komba', publishedAt: '2026-06-01', category: 'tukio' },
+  { id: '2', title: 'Mkutano wa Wanawake', content: 'Wanawake wote wa kanisa wanakaribishwa kwenye mkutano wa maombi Jumamosi ijayo.', author: 'Martha Nyerere', publishedAt: '2026-09-15', category: 'tangazo' },
+  { id: '3', title: 'Ubatizo Mpya', content: 'Wanachama 5 wamebatizwa Jumamosi iliyopita. Mungu awabariki.', author: 'Yohana Mwakyusa', publishedAt: '2026-09-20', category: 'habari' },
+];
+
+export const initialEvents: ChurchEvent[] = [
+  { id: '1', title: 'Ibada ya Jumamosi', description: 'Ibada kuu ya wiki', date: '2026-10-10', time: '09:00', location: 'Kanisa Kuu', category: 'ibada' },
+  { id: '2', title: 'Mkutano wa Maombi', description: 'Maombi ya jioni', date: '2026-10-14', time: '18:00', location: 'Kanisa Kuu', category: 'mkutano' },
+  { id: '3', title: 'Kikao cha Uongozi', description: 'Kikao cha viongozi wote', date: '2026-10-18', time: '16:00', location: 'Ofisi ya Kanisa', category: 'kikao' },
+  { id: '4', title: 'Sherehe ya Shukrani', description: 'Sherehe ya mwaka', date: '2026-11-05', time: '10:00', location: 'Kanisa Kuu', category: 'sherehe' },
+];
+
+export const initialMinistries: Ministry[] = [
+  { id: '1', name: 'Kwaya', description: 'Uimbaji wa nyimbo za Mungu', leader: 'Esther Mwansasu', memberCount: 25, meetingDay: 'Jumanne', icon: '🎵' },
+  { id: '2', name: 'Vijana', description: 'Umoja wa vijana wa kanisa', leader: 'Daudi Komba', memberCount: 40, meetingDay: 'Jumamosi', icon: '🔥' },
+  { id: '3', name: 'Wanawake', description: 'Umoja wa wanawake', leader: 'Martha Nyerere', memberCount: 35, meetingDay: 'Alhamisi', icon: '💐' },
+  { id: '4', name: 'Wazee', description: 'Umoja wa wazee', leader: 'Petro Mwakyusa', memberCount: 20, meetingDay: 'Jumatano', icon: '🕊️' },
+  { id: '5', name: 'Usabato', description: 'Shule ya Sabato', leader: 'Yohana Mwakyusa', memberCount: 50, meetingDay: 'Jumamosi', icon: '📖' },
+  { id: '6', name: 'Uinjilisti', description: 'Kazi ya uinjilisti', leader: 'Daudi Komba', memberCount: 15, meetingDay: 'Jumapili', icon: '✝️' },
+];
+
+export const initialSMS: SMSMessage[] = [
+  { id: '1', recipients: ['1', '2', '3'], message: 'Habari wanachama, ibada ya Jumamosi itaanza saa 3 asubuhi.', sentAt: '2026-09-25T10:00:00Z', status: 'sent', group: 'Wote' },
+];
+
+// ===== WANACHAMA =====
+export interface Member {
+  id: string;
+  fullName: string;
+  phone: string;
+  email?: string;
+  gender: 'me' | 'ke';
+  ageGroup: 'watoto' | 'vijana' | 'wazee';
+  ministry: string;
+  role?: string;
+  address?: string;
+  baptized: boolean;
+  joinedAt: string;
+  photo?: string;
+}
+
+// ===== SMS =====
+export interface SMSMessage {
+  id: string;
+  recipients: string[]; // member IDs
+  message: string;
+  sentAt: string;
+  status: 'pending' | 'sent' | 'failed';
+  group?: string;
+}
+
+// ===== GALLERY =====
+export interface GalleryItem {
+  id: string;
+  title: string;
+  imageUrl: string;
+  album: string;
+  uploadedAt: string;
+}
+
+// ===== BOOKS =====
+export interface Book {
+  id: string;
+  title: string;
+  author: string;
+  description: string;
+  coverUrl: string;
+  fileUrl: string;
+  category: string;
+  uploadedAt: string;
+}
+
+// ===== CHAT =====
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  message: string;
+  timestamp: string;
+  room: string;
+}
+
+// ===== LEADERSHIP =====
+export interface Leader {
+  id: string;
+  name: string;
+  position: string;
+  photo: string;
+  phone: string;
+  email?: string;
+  bio?: string;
+}
+
+// ===== NEWS =====
+export interface NewsItem {
+  id: string;
+  title: string;
+  content: string;
+  imageUrl?: string;
+  author: string;
+  publishedAt: string;
+  category: 'tangazo' | 'tukio' | 'habari';
+}
+
+// ===== CALENDAR =====
+export interface ChurchEvent {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  time: string;
+  location: string;
+  category: 'ibada' | 'mkutano' | 'sherehe' | 'kikao';
+}
+
+// ===== MINISTRIES =====
+export interface Ministry {
+  id: string;
+  name: string;
+  description: string;
+  leader: string;
+  memberCount: number;
+  meetingDay: string;
+  icon: string;
+}

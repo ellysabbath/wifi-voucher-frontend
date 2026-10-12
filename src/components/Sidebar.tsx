@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 
 const links = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/members', label: 'Wanachama', icon: Users },
   { to: '/sms', label: 'Tuma SMS', icon: MessageSquare },
   { to: '/gallery', label: 'Picha', icon: Image },
