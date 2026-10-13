@@ -1,20 +1,30 @@
+// src/components/Sidebar.tsx
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, MessageSquare, Image, BookOpen,
-  MessageCircle, Crown, Newspaper, Calendar, Church, X
+  LayoutDashboard,
+  Users,
+  MessageSquare,
+  Image,
+  BookOpen,
+  MessageCircle,
+  Crown,
+  Newspaper,
+  Calendar,
+  Church,
+  X,
 } from 'lucide-react';
 
 const links = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/members', label: 'Wanachama', icon: Users },
-  { to: '/sms', label: 'Tuma SMS', icon: MessageSquare },
-  { to: '/gallery', label: 'Picha', icon: Image },
-  { to: '/books', label: 'Vitabu', icon: BookOpen },
-  { to: '/chat', label: 'Mazungumzo', icon: MessageCircle },
-  { to: '/leadership', label: 'Uongozi', icon: Crown },
-  { to: '/news', label: 'Habari', icon: Newspaper },
-  { to: '/calendar', label: 'Kalenda', icon: Calendar },
-  { to: '/ministries', label: 'Huduma', icon: Church },
+  { to: '/members', label: 'Members', icon: Users },
+  { to: '/sms', label: 'Bulk SMS', icon: MessageSquare },
+  { to: '/gallery', label: 'Gallery', icon: Image },
+  { to: '/books', label: 'Books', icon: BookOpen },
+  { to: '/chat', label: 'Chat', icon: MessageCircle },
+  { to: '/leadership', label: 'Leadership', icon: Crown },
+  { to: '/news', label: 'News', icon: Newspaper },
+  { to: '/calendar', label: 'Calendar', icon: Calendar },
+  { to: '/ministries', label: 'Ministries', icon: Church },
 ];
 
 interface SidebarProps {
@@ -25,7 +35,7 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   return (
     <>
-      {/* Overlay kwa mobile */}
+      {/* Mobile overlay */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -43,22 +53,22 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
-        {/* Header - haiscroll */}
+        {/* Header — fixed */}
         <div className="flex items-center justify-between p-4 border-b border-slate-700 flex-shrink-0">
           <div>
             <h1 className="text-xl font-bold text-primary">Bahi SDA</h1>
-            <p className="text-xs text-gray-400">Mfumo wa Kanisa</p>
+            <p className="text-xs text-gray-400">Church System</p>
           </div>
           <button
             onClick={onClose}
             className="lg:hidden p-1 hover:bg-slate-700 rounded"
-            aria-label="Funga menu"
+            aria-label="Close menu"
           >
             <X size={20} />
           </button>
         </div>
 
-        {/* Navigation - inascroll */}
+        {/* Navigation — scrolls */}
         <nav className="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar">
           {links.map((link) => (
             <NavLink
@@ -78,7 +88,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           ))}
         </nav>
 
-        {/* Footer - haiscroll */}
+        {/* Footer — fixed */}
         <div className="p-4 border-t border-slate-700 flex-shrink-0">
           <p className="text-xs text-gray-400 text-center">
             © 2026 Bahi SDA Church
