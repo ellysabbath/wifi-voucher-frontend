@@ -6,9 +6,8 @@ import {
   Calendar,
   Newspaper,
   RefreshCw,
-  Loader2,
 } from "lucide-react";
-import { Skeleton } from "../components/skeleton";
+import { Skeleton } from "../components/Skeleton";
 
 // Real API clients
 import { adminApi } from "../lib/adminApi";
@@ -130,18 +129,23 @@ export default function Dashboard() {
           </h1>
           <p className="text-gray-500">Church management system</p>
         </div>
+
+        {/* Refresh button — shows skeleton while loading, no spinner */}
         <button
           onClick={load}
           disabled={loading}
-          className="self-start sm:self-auto text-sm text-gray-600 hover:text-black disabled:opacity-50 flex items-center gap-2"
+          className="self-start sm:self-auto text-sm text-gray-600 hover:text-black disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition"
         >
           {loading ? (
             <>
-              <Loader2 size={14} className="animate-spin" /> Refreshing…
+              {/* Fake icon placeholder to keep width stable */}
+              <Skeleton className="w-3.5 h-3.5 rounded" />
+              <Skeleton className="h-3 w-14" />
             </>
           ) : (
             <>
-              <RefreshCw size={14} /> Refresh
+              <RefreshCw size={14} />
+              Refresh
             </>
           )}
         </button>
@@ -158,20 +162,14 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
         {loading
           ? Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="bg-white rounded-lg shadow p-5 lg:p-6"
-              >
+              <div key={i} className="bg-white rounded-lg shadow p-5 lg:p-6">
                 <Skeleton className="w-12 h-12 rounded-lg mb-4" />
                 <Skeleton className="h-3 w-24 mb-3" />
                 <Skeleton className="h-8 w-16" />
               </div>
             ))
           : (data?.stats ?? []).map((s) => (
-              <div
-                key={s.label}
-                className="bg-white rounded-lg shadow p-5 lg:p-6"
-              >
+              <div key={s.label} className="bg-white rounded-lg shadow p-5 lg:p-6">
                 <div
                   className={`w-12 h-12 ${s.color} rounded-lg mb-4 flex items-center justify-center text-white`}
                 >
@@ -187,17 +185,12 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         {/* Upcoming events */}
         <div className="bg-white rounded-lg shadow p-5 lg:p-6">
-          <h2 className="text-lg lg:text-xl font-bold mb-4">
-            Upcoming Events
-          </h2>
+          <h2 className="text-lg lg:text-xl font-bold mb-4">Upcoming Events</h2>
 
           {loading ? (
             <div className="space-y-4">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="border-l-4 border-gray-200 pl-3"
-                >
+                <div key={i} className="border-l-4 border-gray-200 pl-3">
                   <Skeleton className="h-4 w-3/4 mb-2" />
                   <Skeleton className="h-3 w-1/2" />
                 </div>
@@ -225,17 +218,12 @@ export default function Dashboard() {
 
         {/* Latest news */}
         <div className="bg-white rounded-lg shadow p-5 lg:p-6">
-          <h2 className="text-lg lg:text-xl font-bold mb-4">
-            Latest News
-          </h2>
+          <h2 className="text-lg lg:text-xl font-bold mb-4">Latest News</h2>
 
           {loading ? (
             <div className="space-y-4">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="border-l-4 border-gray-200 pl-3"
-                >
+                <div key={i} className="border-l-4 border-gray-200 pl-3">
                   <Skeleton className="h-4 w-3/4 mb-2" />
                   <Skeleton className="h-3 w-1/3" />
                 </div>
