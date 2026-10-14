@@ -18,7 +18,7 @@ import {
 
 import Modal from "../components/Modal";
 import ConfirmModal from "../components/ConfirmModal";
-import { Skeleton, SkeletonText } from "../components/Skeleton";
+import { Skeleton, SkeletonText } from "../components/skeleton";
 
 import {
   ministriesApi,

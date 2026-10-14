@@ -1,20 +1,29 @@
 // src/pages/auth/Login.tsx
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, LogIn } from "lucide-react";
 import AuthLayout from "./AuthLayout";
 import { authApi, tokenStore } from "../../lib/auth";
+import { isStaffRole, isAdminPath } from "../../lib/roles";
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // If the user was bounced here by a route guard, remember where
+  // they were headed so we can send them back after login.
+  const fromPath = (location.state as { from?: { pathname?: string } })?.from
+    ?.pathname;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
     if (!form.email || !form.password) {
       setError("Please fill in both email and password.");
       return;
@@ -22,17 +31,38 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const res = await authApi.login({ email: form.email, password: form.password });
+      const res = await authApi.login({
+        email: form.email,
+        password: form.password,
+      });
 
       // Not verified → go to verify page
       if (res.needs_verification) {
-        navigate("/verify-account", { state: { email: res.email ?? form.email } });
+        navigate("/verify-account", {
+          state: { email: res.email ?? form.email },
+        });
         return;
       }
 
       if (res.access && res.refresh) {
         tokenStore.set({ access: res.access, refresh: res.refresh });
-        navigate("/dashboard");
+
+        // ---- Role-based redirect ----
+        const profile = await authApi.me();
+        const staff = isStaffRole(profile.role);
+
+        // 1. Default landing page per role
+        const defaultDest = staff ? "/dashboard" : "/user/dashboard";
+
+        // 2. If they were bounced by a guard, honor that if allowed
+        let dest = defaultDest;
+        if (fromPath) {
+          dest = isAdminPath(fromPath) && !staff
+            ? "/user/dashboard"
+            : fromPath;
+        }
+
+        navigate(dest, { replace: true });
       }
     } catch (err: any) {
       const msg = err?.message ?? "Login failed";
@@ -91,7 +121,10 @@ export default function Login() {
             <input type="checkbox" className="rounded" />
             <span className="text-gray-600">Remember me</span>
           </label>
-          <Link to="/forgot-password" className="text-primary font-semibold hover:underline">
+          <Link
+            to="/forgot-password"
+            className="text-primary font-semibold hover:underline"
+          >
             Forgot password?
           </Link>
         </div>
@@ -112,7 +145,10 @@ export default function Login() {
 
         <p className="text-center text-sm text-gray-600">
           Don't have an account?{" "}
-          <Link to="/register" className="text-primary font-semibold hover:underline">
+          <Link
+            to="/register"
+            className="text-primary font-semibold hover:underline"
+          >
             Sign up
           </Link>
         </p>
