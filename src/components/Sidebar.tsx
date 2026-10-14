@@ -20,7 +20,7 @@ const links = [
   { to: '/sms', label: 'Bulk SMS', icon: MessageSquare },
   { to: '/gallery', label: 'Gallery', icon: Image },
   { to: '/books', label: 'Books', icon: BookOpen },
-  { to: '/chat', label: 'Chat', icon: MessageCircle },
+  // { to: '/chat', label: 'Chat', icon: MessageCircle },
   { to: '/leadership', label: 'Leadership', icon: Crown },
   { to: '/news', label: 'News', icon: Newspaper },
   { to: '/calendar', label: 'Calendar', icon: Calendar },
