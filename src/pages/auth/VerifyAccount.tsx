@@ -1,8 +1,10 @@
+// src/pages/auth/VerifyAccount.tsx
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Mail, CheckCircle2 } from "lucide-react";
+import { Mail, CheckCircle2, Smartphone } from "lucide-react";
 import AuthLayout from "./AuthLayout";
 import { authApi, tokenStore } from "../../lib/auth";
+import { isStaffRole } from "../../lib/roles";
 
 export default function VerifyAccount() {
   const navigate = useNavigate();
@@ -38,19 +40,30 @@ export default function VerifyAccount() {
     e.preventDefault();
     setError("");
     setInfo("");
+
     const full = code.join("");
     if (full.length !== 6) {
       setError("Enter the full 6-digit code.");
       return;
     }
+
     setLoading(true);
     try {
       const res = await authApi.verifyOtp({ email, code: full });
       if (res.access && res.refresh) {
         tokenStore.set({ access: res.access, refresh: res.refresh });
       }
-      // Go straight to dashboard — no auth context needed
-      navigate("/dashboard");
+
+      // Role-aware redirect
+      try {
+        const profile = await authApi.me();
+        navigate(
+          isStaffRole(profile.role) ? "/admin/dashboard" : "/user/dashboard",
+          { replace: true }
+        );
+      } catch {
+        navigate("/user/dashboard", { replace: true });
+      }
     } catch (err: any) {
       setError(err?.message ?? "Verification failed.");
     } finally {
@@ -63,9 +76,11 @@ export default function VerifyAccount() {
     setInfo("");
     try {
       await authApi.resendOtp({ email, purpose: "verify" });
-      setInfo("A new code has been sent to your email.");
+      setInfo(
+        "A fresh code has been sent to your email and phone (if a number is registered)."
+      );
     } catch (err: any) {
-      setError(err?.message ?? "Could not resend code.");
+      setError(err?.message ?? "Could not resend the code.");
     }
   };
 
@@ -74,16 +89,29 @@ export default function VerifyAccount() {
       title="Verify Account"
       subtitle={`We sent a 6-digit code to ${email}`}
     >
-      <div className="flex justify-center mb-6">
-        <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-          <Mail size={36} />
+      {/* Dual-channel icons */}
+      <div className="flex justify-center gap-4 mb-6">
+        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+          <Mail size={28} />
         </div>
+        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+          <Smartphone size={28} />
+        </div>
+      </div>
+
+      {/* Where to look */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800 text-center">
+        Check your <strong>email</strong>
+        <br />
+        <span className="text-xs">
+          We also sent it via SMS to your registered phone number (if any).
+        </span>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label className="block text-sm font-semibold mb-3 text-center">
-            Enter the code
+            Enter the 6-digit code
           </label>
           <div className="flex justify-center gap-2">
             {code.map((digit, i) => (
@@ -107,6 +135,7 @@ export default function VerifyAccount() {
             {error}
           </div>
         )}
+
         {info && (
           <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg p-3 text-center">
             {info}
@@ -118,7 +147,8 @@ export default function VerifyAccount() {
           disabled={loading}
           className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark transition flex items-center justify-center gap-2 disabled:opacity-60"
         >
-          <CheckCircle2 size={18} /> {loading ? "Verifying..." : "Verify"}
+          <CheckCircle2 size={18} />{" "}
+          {loading ? "Verifying…" : "Verify Account"}
         </button>
 
         <div className="text-center text-sm text-gray-600">
@@ -130,6 +160,10 @@ export default function VerifyAccount() {
           >
             Resend
           </button>
+        </div>
+
+        <div className="text-center text-xs text-gray-400">
+          Codes expire 10 minutes after they're sent.
         </div>
       </form>
     </AuthLayout>

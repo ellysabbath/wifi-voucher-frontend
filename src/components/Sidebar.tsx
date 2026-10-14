@@ -63,7 +63,7 @@ const sections: NavSection[] = [
         to: "/admin/members",
         label: "Members",
         icon: Users,
-        minRole: "elder",
+        // minRole: "elder",
       },
       {
         to: "/admin/sms",
